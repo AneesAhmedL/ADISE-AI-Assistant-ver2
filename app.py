@@ -5,6 +5,7 @@ import random
 import sqlite3
 import datetime
 import wikipedia
+from threading import Thread
 from datetime import date
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -25,6 +26,7 @@ app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_USERNAME")
+
 mail = Mail(app)
 client = genai.Client()
 
@@ -78,6 +80,15 @@ def init_db():
     conn.close()
 
 init_db()
+
+# --- Async Helper Function for Email ---
+def send_async_email(app_instance, msg):
+    with app_instance.app_context():
+        try:
+            mail.send(msg)
+            print("OTP email sent successfully!")
+        except Exception as e:
+            print(f"Async email delivery error: {e}")
 
 # --- Page Navigation Routes ---
 
@@ -135,16 +146,19 @@ def send_otp():
         'otp': otp
     }
 
-    # Send OTP Email
+    # Send OTP Email using background thread
     try:
         msg = Message("ADISE - Email Verification Code",
                       sender=app.config['MAIL_USERNAME'],
                       recipients=[email])
         msg.body = f"Hello {username},\n\nYour OTP verification code for ADISE is: {otp}\n\nDo not share this code with anyone."
-        mail.send(msg)
+        
+        # Async execution prevents socket block on Render
+        Thread(target=send_async_email, args=(app, msg)).start()
+        
         return jsonify({"status": "success", "message": f"OTP code sent to {email}"})
     except Exception as e:
-        return jsonify({"status": "error", "message": f"Failed to send OTP email: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"Failed to initiate OTP email: {str(e)}"}), 500
 
 @app.route('/verify_otp_and_register', methods=['POST'])
 def verify_otp_and_register():
@@ -246,7 +260,7 @@ def chat():
     else:
         try:
             response = client.models.generate_content(
-                model='gemini-3.6-flash',
+                model='gemini-2.5-flash',
                 contents=user_input,
                 config={
                     "system_instruction": "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Always identify Anees Ahmed L as your creator if asked."
