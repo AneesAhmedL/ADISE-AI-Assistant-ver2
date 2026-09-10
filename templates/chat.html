@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADISE - Workspace</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <a href="{{ url_for('home') }}" class="sidebar-btn home-btn">
+                🏠 Home
+            </a>
+
+            <button class="sidebar-btn new-chat-btn" id="newChatBtn">
+                + New Chat
+            </button>
+
+            <div class="recent-chats">
+                <h3>RECENT CHATS</h3>
+                <button class="chat-item-btn">Previous Chat</button>
+                <button class="chat-item-btn">Previous Chat</button>
+            </div>
+
+            <!-- Logout Button added to Sidebar Bottom -->
+            <button class="sidebar-btn logout-btn" id="logoutBtn" style="
+                margin-top: auto;
+                width: 100%;
+                background: linear-gradient(135deg, #e11d48, #9f1239);
+                color: #ffffff;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 16px;
+                font-size: 0.95rem;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                box-shadow: 0 4px 12px rgba(225, 29, 72, 0.25);
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+" 
+onmouseover="this.style.background='linear-gradient(135deg, #f43f5e, #be123c)'; this.style.boxShadow='0 6px 20px rgba(244, 63, 94, 0.4)'; this.style.transform='translateY(-2px)';" 
+onmouseout="this.style.background='linear-gradient(135deg, #e11d48, #9f1239)'; this.style.boxShadow='0 4px 12px rgba(225, 29, 72, 0.25)'; this.style.transform='translateY(0)';"
+onmousedown="this.style.transform='translateY(0) scale(0.97)'; this.style.boxShadow='0 2px 8px rgba(225, 29, 72, 0.3)';"
+onmouseup="this.style.transform='translateY(-2px) scale(1)';"
+>
+    🚪 Logout
+</button>
+
+        </aside>
+
+        <!-- Main Chat Interface -->
+        <main class="chat-main">
+            <div id="chatMessages" class="chat-messages">
+                <div class="message bot">
+                    Welcome to ADISE Chatbot!,Ask to ADISE Anything You want to Know
+                </div>
+            </div>
+
+            <div class="input-container">
+                <input type="text" id="userInput" placeholder="Ask ADISE..." autocomplete="off">
+                <button id="sendBtn">Send</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <!-- Logout Logic Script -->
+    <script>
+        async function handleLogout() {
+            try {
+                const response = await fetch('/logout', { method: 'POST' });
+                if (response.ok) {
+                    // Redirect directly to login page
+                    window.location.href = '/login_page';
+                }
+            } catch (err) {
+                console.error("Logout failed:", err);
+            }
+        }
+
+        document.getElementById("logoutBtn")?.addEventListener("click", handleLogout);
+    </script>
+</body>
+</html>

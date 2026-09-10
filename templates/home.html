@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADISE - Home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+</head>
+<body>
+    <div class="home-card">
+        <img src="{{ url_for('static', filename='images/ADISE2-Rlogo.png') }}" alt="ADISE Logo" class="logo">
+        <h1>ADISE</h1>
+        <h2>Advanced Development Intelligence System Execution</h2>
+        <p>An advanced personal AI assistant designed to enhance daily productivity, automate routines, and perform intelligent command execution.</p>
+        <p class="sub-text">Welcome to Our Chatbot Interface. Click the button below to start.</p>
+        
+        <a href="{{ url_for('login_page') }}" class="btn-link">
+            <button class="start-btn">Get Started</button>
+        </a>
+    </div>
+</body>
+</html>

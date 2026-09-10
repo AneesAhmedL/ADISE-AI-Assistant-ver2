@@ -1,0 +1,85 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #0d1117; /* Dark tech background */
+    color: #f0f6fc;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.home-card {
+    background-color: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 16px;
+    padding: 40px;
+    max-width: 650px;
+    text-align: center;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.6); /* Neon cyan glow */
+}
+
+.logo {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 0 10px #7754f7);
+}
+
+h1 {
+    font-size: 2.2rem;
+    color: #ffd700; /* Neon cyan */
+    text-shadow: 0 0 8px rgba(0, 242, 254, 0.4);
+    margin-bottom: 8px;
+}
+
+h2 {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #58a6ff; /* Electric blue */
+    margin-bottom: 20px;
+}
+
+p {
+    font-size: 0.95rem;
+    color: #8b949e;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.sub-text {
+    font-weight: 600;
+    color: #f0f6fc;
+}
+
+.btn-link {
+    text-decoration: none;
+    display: inline-block;
+    margin-top: 15px;
+}
+
+.start-btn {
+    background: linear-gradient(135deg, #dc2626, #dc2626); /* Cyan to electric blue gradient */
+    color: #ffffff;
+    border: none;
+    padding: 12px 36px;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(233, 101, 8, 0.7);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.start-btn:hover {
+    transform: translateY(-2px);
+    background-color:#b91c1c;
+    box-shadow: 0 0 22px rgba(233, 101, 78, 0.7);
+}
