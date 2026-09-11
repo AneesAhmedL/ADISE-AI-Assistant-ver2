@@ -16,7 +16,6 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "adise_production_secure_secret_key_2026")
 
-# Enable secure cookies across sessions on hosted environments
 app.config.update(
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
@@ -26,6 +25,8 @@ app.config.update(
 # --- Environment & API Configurations ---
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+COHERE_API_KEY = os.getenv("COHERE_API_KEY", "")
 MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
 if MONGO_URI.startswith("MONGODB_URI="):
@@ -53,14 +54,17 @@ def get_db():
 # --- Initialize Gemini Client ---
 gemini_client = genai.Client()
 
-# --- Helper Function: Multi-AI Generator ---
+# --- Helper Function: Multi-AI Generator (4 AI Providers) ---
 def generate_ai_response(user_input, system_instruction):
     """
-    Tries primary Groq models first for speed, then falls back to multiple Gemini models
-    if high-demand limits or server errors occur.
+    4-Tier AI Engine:
+    1. Groq API
+    2. OpenRouter API
+    3. Cohere API
+    4. Google Gemini API
     """
-    
-    # Provider 1: Groq API (High Speed Open Models)
+
+    # Provider 1: Groq API
     if GROQ_API_KEY:
         groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
         groq_url = "https://api.groq.com/openai/v1/chat/completions"
@@ -68,7 +72,6 @@ def generate_ai_response(user_input, system_instruction):
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
-        
         for model in groq_models:
             try:
                 payload = {
@@ -79,17 +82,66 @@ def generate_ai_response(user_input, system_instruction):
                     ],
                     "temperature": 0.7
                 }
-                res = requests.post(groq_url, json=payload, headers=groq_headers, timeout=10)
+                res = requests.post(groq_url, json=payload, headers=groq_headers, timeout=8)
                 if res.status_code == 200:
-                    data = res.json()
-                    return data["choices"][0]["message"]["content"]
-                else:
-                    print(f"[GROQ ERROR] {model} returned status {res.status_code}: {res.text}")
+                    return res.json()["choices"][0]["message"]["content"]
+                print(f"[GROQ ERROR] {model} status {res.status_code}")
             except Exception as e:
                 print(f"[GROQ EXCEPTION] {model}: {str(e)}")
 
-    # Provider 2: Google Gemini API (Fallback Tiers)
-    gemini_models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+    # Provider 2: OpenRouter API
+    if OPENROUTER_API_KEY:
+        openrouter_models = [
+            "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "google/gemma-2-9b-it:free",
+            "mistralai/mistral-7b-instruct:free"
+        ]
+        openrouter_url = "https://openrouter.ai/api/v1/chat/completions"
+        openrouter_headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        for model in openrouter_models:
+            try:
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": user_input}
+                    ]
+                }
+                res = requests.post(openrouter_url, json=payload, headers=openrouter_headers, timeout=8)
+                if res.status_code == 200:
+                    return res.json()["choices"][0]["message"]["content"]
+                print(f"[OPENROUTER ERROR] {model} status {res.status_code}")
+            except Exception as e:
+                print(f"[OPENROUTER EXCEPTION] {model}: {str(e)}")
+
+    # Provider 3: Cohere API
+    if COHERE_API_KEY:
+        cohere_url = "https://api.cohere.com/v2/chat"
+        cohere_headers = {
+            "Authorization": f"Bearer {COHERE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        try:
+            payload = {
+                "model": "command-r-plus",
+                "messages": [
+                    {"role": "system", "content": system_instruction},
+                    {"role": "user", "content": user_input}
+                ]
+            }
+            res = requests.post(cohere_url, json=payload, headers=cohere_headers, timeout=8)
+            if res.status_code == 200:
+                data = res.json()
+                return data["message"]["content"][0]["text"]
+            print(f"[COHERE ERROR] status {res.status_code}")
+        except Exception as e:
+            print(f"[COHERE EXCEPTION]: {str(e)}")
+
+    # Provider 4: Google Gemini API
+    gemini_models = ["gemini-2.5-flash", "gemini-1.5-flash"]
     for model in gemini_models:
         try:
             response = gemini_client.models.generate_content(
