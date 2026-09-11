@@ -6,7 +6,6 @@
     <title>ADISE - Workspace</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
     <style>
-        /* Mobile Layout & Viewport Optimization */
         html, body {
             height: 100%;
             margin: 0;
@@ -17,7 +16,7 @@
         .app-container {
             display: flex;
             height: 100vh;
-            height: 100dvh; /* Adapts dynamically to mobile browser address bars */
+            height: 100dvh;
             width: 100vw;
             overflow: hidden;
         }
@@ -57,15 +56,14 @@
             align-items: center;
         }
 
-        /* Mobile specific adjustments */
         @media (max-width: 768px) {
             .sidebar {
-                width: 70px; /* Compact icon width on mobile screens */
+                width: 70px;
                 padding: 8px 4px;
             }
             
             .recent-chats {
-                display: none; /* Hide long thread list on mobile to save vertical space */
+                display: none;
             }
 
             .sidebar-btn span.btn-text {
@@ -74,7 +72,7 @@
 
             .input-container {
                 padding: 8px 12px;
-                margin-bottom: env(safe-area-inset-bottom, 0px); /* Respect mobile safe areas */
+                margin-bottom: env(safe-area-inset-bottom, 0px);
             }
         }
     </style>
@@ -140,12 +138,44 @@ onmouseout="this.style.background='linear-gradient(135deg, #e11d48, #9f1239)'; t
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 
-    <!-- Logout Logic Script -->
+    <!-- Chat History Persistence & Logout Script -->
     <script>
+        async function loadActiveThreadMessages(sessionId) {
+            const chatBox = document.getElementById("chatMessages");
+            try {
+                const response = await fetch(`/get_thread_messages/${sessionId}`);
+                const data = await response.json();
+                
+                if (data.messages && data.messages.length > 0) {
+                    chatBox.innerHTML = "";
+                    data.messages.forEach(msg => {
+                        if (msg.user) {
+                            chatBox.innerHTML += `<div class="message user">${msg.user}</div>`;
+                        }
+                        if (msg.bot) {
+                            const botHtml = typeof marked !== 'undefined' ? marked.parse(msg.bot) : msg.bot;
+                            chatBox.innerHTML += `<div class="message bot">${botHtml}</div>`;
+                        }
+                    });
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            } catch (err) {
+                console.error("Failed to restore thread history:", err);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const activeSessionId = localStorage.getItem("current_session_id");
+            if (activeSessionId) {
+                loadActiveThreadMessages(activeSessionId);
+            }
+        });
+
         async function handleLogout() {
             try {
                 const response = await fetch('/logout', { method: 'POST' });
                 if (response.ok) {
+                    localStorage.removeItem("current_session_id");
                     window.location.href = '/login_page';
                 }
             } catch (err) {
