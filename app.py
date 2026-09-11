@@ -16,15 +16,22 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "adise_production_secure_secret_key_2026")
 
+# Enable secure cookies across sessions on hosted environments
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+)
+
 # --- Environment & API Configurations ---
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
-# Clean MONGO_URI if a prefix was added accidentally in Environment Variables
 if MONGO_URI.startswith("MONGODB_URI="):
     MONGO_URI = MONGO_URI.replace("MONGODB_URI=", "")
 
-# --- Lazy MongoDB Connection (Fork-Safe) ---
+# --- Lazy MongoDB Connection ---
 mongo_client = None
 
 def get_db():
@@ -44,7 +51,58 @@ def get_db():
     return mongo_client["adise_db"]
 
 # --- Initialize Gemini Client ---
-client = genai.Client()
+gemini_client = genai.Client()
+
+# --- Helper Function: Multi-AI Generator ---
+def generate_ai_response(user_input, system_instruction):
+    """
+    Tries primary Groq models first for speed, then falls back to multiple Gemini models
+    if high-demand limits or server errors occur.
+    """
+    
+    # Provider 1: Groq API (High Speed Open Models)
+    if GROQ_API_KEY:
+        groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+        groq_url = "https://api.groq.com/openai/v1/chat/completions"
+        groq_headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        for model in groq_models:
+            try:
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": user_input}
+                    ],
+                    "temperature": 0.7
+                }
+                res = requests.post(groq_url, json=payload, headers=groq_headers, timeout=10)
+                if res.status_code == 200:
+                    data = res.json()
+                    return data["choices"][0]["message"]["content"]
+                else:
+                    print(f"[GROQ ERROR] {model} returned status {res.status_code}: {res.text}")
+            except Exception as e:
+                print(f"[GROQ EXCEPTION] {model}: {str(e)}")
+
+    # Provider 2: Google Gemini API (Fallback Tiers)
+    gemini_models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+    for model in gemini_models:
+        try:
+            response = gemini_client.models.generate_content(
+                model=model,
+                contents=user_input,
+                config={"system_instruction": system_instruction}
+            )
+            if response and response.text:
+                return response.text
+        except Exception as e:
+            print(f"[GEMINI EXCEPTION] {model}: {str(e)}")
+
+    return "All AI provider endpoints are currently experiencing heavy traffic. Please try again in a few seconds."
 
 # --- Page Navigation Routes ---
 
@@ -240,17 +298,8 @@ def chat():
     elif any(k in user_input_lower for k in ["creator", "who made you", "who created you", "who built you", "developer"]):
         reply = "I was created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student."
     else:
-        try:
-            response = client.models.generate_content(
-                model='gemini-3.6-flash',
-                contents=user_input,
-                config={
-                    "system_instruction": "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Always identify Anees Ahmed L as your creator if asked."
-                }
-            )
-            reply = response.text
-        except Exception as e:
-            reply = f"Error processing AI request: {str(e)}"
+        system_instruction = "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Always identify Anees Ahmed L as your creator if asked."
+        reply = generate_ai_response(user_input, system_instruction)
 
     try:
         db.chat_history.insert_one({
