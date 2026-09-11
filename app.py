@@ -3,6 +3,7 @@ import uuid
 import random
 import datetime
 import requests
+import certifi
 from datetime import date
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -17,11 +18,30 @@ app.secret_key = os.getenv("SECRET_KEY", "adise_production_secure_secret_key_202
 
 # --- Environment & API Configurations ---
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
-MONGO_URI = os.getenv("MONGO_URI", "")
+MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
-# --- Initialize MongoDB ---
-mongo_client = MongoClient(MONGO_URI) if MONGO_URI else None
-db = mongo_client["adise_db"] if mongo_client else None
+# Clean MONGO_URI if a prefix was added accidentally in Environment Variables
+if MONGO_URI.startswith("MONGODB_URI="):
+    MONGO_URI = MONGO_URI.replace("MONGODB_URI=", "")
+
+# --- Lazy MongoDB Connection (Fork-Safe) ---
+mongo_client = None
+
+def get_db():
+    global mongo_client
+    if not MONGO_URI:
+        return None
+    if mongo_client is None:
+        try:
+            mongo_client = MongoClient(
+                MONGO_URI,
+                tlsCAFile=certifi.where(),
+                serverSelectionTimeoutMS=5000
+            )
+        except Exception as e:
+            print(f"[MONGO INITIALIZATION ERROR]: {e}")
+            return None
+    return mongo_client["adise_db"]
 
 # --- Initialize Gemini Client ---
 client = genai.Client()
@@ -53,8 +73,9 @@ def clear_session():
 
 @app.route('/send_otp', methods=['POST'])
 def send_otp():
+    db = get_db()
     if db is None:
-        return jsonify({"status": "error", "message": "Database configuration missing."}), 500
+        return jsonify({"status": "error", "message": "Database configuration missing or unreachable."}), 500
 
     data = request.get_json() or {}
     username = data.get('username', '').strip()
@@ -106,8 +127,9 @@ def send_otp():
 
 @app.route('/verify_otp_and_register', methods=['POST'])
 def verify_otp_and_register():
+    db = get_db()
     if db is None:
-        return jsonify({"status": "error", "message": "Database configuration missing."}), 500
+        return jsonify({"status": "error", "message": "Database configuration missing or unreachable."}), 500
 
     data = request.get_json() or {}
     user_otp = data.get('otp', '').strip()
@@ -135,8 +157,9 @@ def verify_otp_and_register():
 
 @app.route('/login', methods=['POST'])
 def login():
+    db = get_db()
     if db is None:
-        return jsonify({"status": "error", "message": "Database configuration missing."}), 500
+        return jsonify({"status": "error", "message": "Database configuration missing or unreachable."}), 500
 
     data = request.get_json() or {}
     login_identifier = data.get('username', '').strip().lower()
@@ -145,9 +168,13 @@ def login():
     if not login_identifier or not password:
         return jsonify({"status": "error", "message": "Please enter your credentials."}), 400
 
-    user = db.users.find_one({
-        "$or": [{"username_lower": login_identifier}, {"email": login_identifier}]
-    })
+    try:
+        user = db.users.find_one({
+            "$or": [{"username_lower": login_identifier}, {"email": login_identifier}]
+        })
+    except Exception as e:
+        print(f"[LOGIN DB ERROR]: {str(e)}")
+        return jsonify({"status": "error", "message": "Database connection error."}), 500
 
     if user and check_password_hash(user['password_hash'], password):
         session['user_id'] = str(user['_id'])
@@ -166,8 +193,9 @@ def logout():
 
 @app.route('/chat', methods=['POST'])
 def chat():
+    db = get_db()
     if db is None:
-        return jsonify({"reply": "Database configuration missing."}), 500
+        return jsonify({"reply": "Database configuration missing or unreachable."}), 500
 
     user_id = session.get('user_id')
     if not user_id:
@@ -214,7 +242,7 @@ def chat():
     else:
         try:
             response = client.models.generate_content(
-                model='gemini-3.6-flash',
+                model='gemini-1.5-flash',
                 contents=user_input,
                 config={
                     "system_instruction": "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Always identify Anees Ahmed L as your creator if asked."
@@ -238,8 +266,9 @@ def chat():
 
 @app.route('/get_threads', methods=['GET'])
 def get_threads():
+    db = get_db()
     if db is None:
-        return jsonify({"error": "Database configuration missing."}), 500
+        return jsonify({"error": "Database configuration missing or unreachable."}), 500
 
     user_id = session.get('user_id')
     if not user_id:
@@ -260,8 +289,9 @@ def get_threads():
 
 @app.route('/get_thread_messages/<session_id>', methods=['GET'])
 def get_thread_messages(session_id):
+    db = get_db()
     if db is None:
-        return jsonify({"error": "Database configuration missing."}), 500
+        return jsonify({"error": "Database configuration missing or unreachable."}), 500
 
     if not session.get('user_id'):
         return jsonify({"error": "Unauthorized"}), 401
