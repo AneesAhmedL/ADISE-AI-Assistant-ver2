@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ADISE - Login / Register</title>
+    <title>ADISE - Authentication</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -32,20 +32,20 @@
     <form id="authForm">
         <div class="form-group" id="usernameGroup" style="display: none;">
             <label for="username">Username</label>
-            <input type="text" id="username" placeholder="Choose a username">
+            <input type="text" id="username" placeholder="Choose a username" autocomplete="username">
         </div>
         <div class="form-group" id="loginIdGroup">
             <label id="loginIdLabel" for="loginId">Username or Email</label>
-            <input type="text" id="loginId" placeholder="Enter username or email" required>
+            <input type="text" id="loginId" placeholder="Enter username or email" required autocomplete="username">
         </div>
         <div class="form-group" id="passwordGroup">
             <label for="password">Password</label>
-            <input type="password" id="password" placeholder="Enter password" required>
+            <input type="password" id="password" placeholder="Enter password" required autocomplete="current-password">
         </div>
 
         <div class="form-group" id="otpGroup" style="display: none;">
             <label for="otp">Enter OTP Code</label>
-            <input type="text" id="otp" placeholder="6-digit verification code" maxlength="6">
+            <input type="text" id="otp" placeholder="6-digit verification code" maxlength="6" pattern="[0-9]{6}">
         </div>
 
         <button type="submit" class="btn" id="submitBtn">Login</button>
@@ -78,15 +78,25 @@
     const toggleBtn = document.getElementById("toggleBtn");
     const alertBox = document.getElementById("alertBox");
 
-    toggleBtn.addEventListener("click", () => {
-        isRegistering = !isRegistering;
-        awaitingOTP = false;
+    function showAlert(message, isError = false) {
+        alertBox.className = `alert ${isError ? 'error' : 'success'}`;
+        alertBox.textContent = message;
+        alertBox.style.display = "block";
+    }
+
+    function resetState() {
         alertBox.style.display = "none";
-        
         loginIdGroup.style.display = "block";
         passwordGroup.style.display = "block";
         otpGroup.style.display = "none";
         otpInput.required = false;
+        otpInput.value = "";
+    }
+
+    toggleBtn.addEventListener("click", () => {
+        isRegistering = !isRegistering;
+        awaitingOTP = false;
+        resetState();
 
         if (isRegistering) {
             formTitle.textContent = "Register for ADISE";
@@ -115,7 +125,7 @@
         e.preventDefault();
         alertBox.style.display = "none";
 
-        // Step 1: Handle Login
+        // Step 1: Login Execution
         if (!isRegistering) {
             try {
                 const res = await fetch("/login", {
@@ -129,24 +139,18 @@
 
                 const data = await res.json();
                 if (res.ok && data.status === "success") {
-                    alertBox.className = "alert success";
-                    alertBox.textContent = data.message;
-                    alertBox.style.display = "block";
+                    showAlert(data.message, false);
                     setTimeout(() => window.location.href = "/chat_page", 800);
                 } else {
-                    alertBox.className = "alert error";
-                    alertBox.textContent = data.message || "Login failed.";
-                    alertBox.style.display = "block";
+                    showAlert(data.message || "Login failed.", true);
                 }
             } catch (err) {
-                alertBox.className = "alert error";
-                alertBox.textContent = "Server communication failed.";
-                alertBox.style.display = "block";
+                showAlert("Server communication failed.", true);
             }
             return;
         }
 
-        // Step 2: Handle Initial OTP Dispatch
+        // Step 2: Request OTP
         if (isRegistering && !awaitingOTP) {
             try {
                 submitBtn.textContent = "Sending OTP...";
@@ -167,9 +171,7 @@
 
                 if (res.ok && data.status === "success") {
                     awaitingOTP = true;
-                    alertBox.className = "alert success";
-                    alertBox.textContent = data.message;
-                    alertBox.style.display = "block";
+                    showAlert(data.message, false);
 
                     usernameGroup.style.display = "none";
                     loginIdGroup.style.display = "none";
@@ -179,21 +181,17 @@
                     submitBtn.textContent = "Verify OTP & Complete Registration";
                 } else {
                     submitBtn.textContent = "Send Verification OTP";
-                    alertBox.className = "alert error";
-                    alertBox.textContent = data.message || "Failed to send OTP.";
-                    alertBox.style.display = "block";
+                    showAlert(data.message || "Failed to send OTP.", true);
                 }
             } catch (err) {
                 submitBtn.disabled = false;
                 submitBtn.textContent = "Send Verification OTP";
-                alertBox.className = "alert error";
-                alertBox.textContent = "Server communication failed.";
-                alertBox.style.display = "block";
+                showAlert("Server communication failed.", true);
             }
             return;
         }
 
-        // Step 3: Verify OTP and Register Account
+        // Step 3: Verify OTP & Register
         if (isRegistering && awaitingOTP) {
             try {
                 const res = await fetch("/verify_otp_and_register", {
@@ -205,20 +203,13 @@
                 const data = await res.json();
 
                 if (res.ok && data.status === "success") {
-                    alertBox.className = "alert success";
-                    alertBox.textContent = data.message;
-                    alertBox.style.display = "block";
-
+                    showAlert(data.message, false);
                     setTimeout(() => toggleBtn.click(), 1200);
                 } else {
-                    alertBox.className = "alert error";
-                    alertBox.textContent = data.message || "Verification failed.";
-                    alertBox.style.display = "block";
+                    showAlert(data.message || "Verification failed.", true);
                 }
             } catch (err) {
-                alertBox.className = "alert error";
-                alertBox.textContent = "Server communication failed.";
-                alertBox.style.display = "block";
+                showAlert("Server communication failed.", true);
             }
         }
     });
