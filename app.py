@@ -27,6 +27,7 @@ BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
 MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
 if MONGO_URI.startswith("MONGODB_URI="):
@@ -51,13 +52,10 @@ def get_db():
             return None
     return mongo_client["adise_db"]
 
-# --- Initialize Gemini Client ---
-gemini_client = genai.Client()
-
 # --- Helper Function: Multi-AI Generator (4 AI Providers) ---
 def generate_ai_response(user_input, system_instruction):
     """
-    4-Tier AI Engine:
+    4-Tier AI Engine with Safe Error Handling:
     1. Groq API
     2. OpenRouter API
     3. Cohere API
@@ -85,9 +83,11 @@ def generate_ai_response(user_input, system_instruction):
                 res = requests.post(groq_url, json=payload, headers=groq_headers, timeout=8)
                 if res.status_code == 200:
                     return res.json()["choices"][0]["message"]["content"]
-                print(f"[GROQ ERROR] {model} status {res.status_code}")
+                print(f"[GROQ ERROR] {model} status {res.status_code}: {res.text}")
             except Exception as e:
                 print(f"[GROQ EXCEPTION] {model}: {str(e)}")
+    else:
+        print("[GROQ SKIP] GROQ_API_KEY is not set.")
 
     # Provider 2: OpenRouter API
     if OPENROUTER_API_KEY:
@@ -99,7 +99,8 @@ def generate_ai_response(user_input, system_instruction):
         openrouter_url = "https://openrouter.ai/api/v1/chat/completions"
         openrouter_headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:5000"
         }
         for model in openrouter_models:
             try:
@@ -113,9 +114,11 @@ def generate_ai_response(user_input, system_instruction):
                 res = requests.post(openrouter_url, json=payload, headers=openrouter_headers, timeout=8)
                 if res.status_code == 200:
                     return res.json()["choices"][0]["message"]["content"]
-                print(f"[OPENROUTER ERROR] {model} status {res.status_code}")
+                print(f"[OPENROUTER ERROR] {model} status {res.status_code}: {res.text}")
             except Exception as e:
                 print(f"[OPENROUTER EXCEPTION] {model}: {str(e)}")
+    else:
+        print("[OPENROUTER SKIP] OPENROUTER_API_KEY is not set.")
 
     # Provider 3: Cohere API
     if COHERE_API_KEY:
@@ -136,23 +139,32 @@ def generate_ai_response(user_input, system_instruction):
             if res.status_code == 200:
                 data = res.json()
                 return data["message"]["content"][0]["text"]
-            print(f"[COHERE ERROR] status {res.status_code}")
+            print(f"[COHERE ERROR] status {res.status_code}: {res.text}")
         except Exception as e:
             print(f"[COHERE EXCEPTION]: {str(e)}")
+    else:
+        print("[COHERE SKIP] COHERE_API_KEY is not set.")
 
-    # Provider 4: Google Gemini API
-    gemini_models = ["gemini-2.5-flash", "gemini-1.5-flash"]
-    for model in gemini_models:
+    # Provider 4: Google Gemini API (Safe Execution)
+    if GEMINI_API_KEY:
         try:
-            response = gemini_client.models.generate_content(
-                model=model,
-                contents=user_input,
-                config={"system_instruction": system_instruction}
-            )
-            if response and response.text:
-                return response.text
+            gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+            gemini_models = ["gemini-2.5-flash", "gemini-1.5-flash"]
+            for model in gemini_models:
+                try:
+                    response = gemini_client.models.generate_content(
+                        model=model,
+                        contents=user_input,
+                        config={"system_instruction": system_instruction}
+                    )
+                    if response and response.text:
+                        return response.text
+                except Exception as e:
+                    print(f"[GEMINI EXCEPTION] {model}: {str(e)}")
         except Exception as e:
-            print(f"[GEMINI EXCEPTION] {model}: {str(e)}")
+            print(f"[GEMINI CLIENT INIT ERROR]: {str(e)}")
+    else:
+        print("[GEMINI SKIP] GEMINI_API_KEY is not set.")
 
     return "All AI provider endpoints are currently experiencing heavy traffic. Please try again in a few seconds."
 
