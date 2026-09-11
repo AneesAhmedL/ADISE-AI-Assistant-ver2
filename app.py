@@ -1,15 +1,13 @@
 import os
-import json
 import uuid
 import random
-import sqlite3
 import datetime
 import requests
-import wikipedia
 from datetime import date
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, current_app
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from google import genai
+from pymongo import MongoClient
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,65 +15,16 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "adise_production_secure_secret_key_2026")
 
-# --- Brevo HTTP API Configuration ---
+# --- Environment & API Configurations ---
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+MONGO_URI = os.getenv("MONGO_URI", "")
 
+# --- Initialize MongoDB ---
+mongo_client = MongoClient(MONGO_URI) if MONGO_URI else None
+db = mongo_client["adise_db"] if mongo_client else None
+
+# --- Initialize Gemini Client ---
 client = genai.Client()
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_NAME = os.path.join(BASE_DIR, "database.db")
-
-def get_db_connection():
-    conn = sqlite3.connect(DB_NAME, timeout=30.0)
-    try:
-        conn.execute("PRAGMA journal_mode=WAL;")
-    except sqlite3.OperationalError:
-        pass
-    conn.execute("PRAGMA foreign_keys=ON;")
-    return conn
-
-def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS schedules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE,
-            details TEXT
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chat_threads (
-            session_id TEXT PRIMARY KEY,
-            user_id INTEGER,
-            title TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chat_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT,
-            user_message TEXT,
-            bot_reply TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (session_id) REFERENCES chat_threads (session_id) ON DELETE CASCADE
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-init_db()
 
 # --- Page Navigation Routes ---
 
@@ -100,10 +49,13 @@ def clear_session():
     session.clear()
     return redirect(url_for('home'))
 
-# --- OTP & Authentication Routes ---
+# --- Authentication Routes ---
 
 @app.route('/send_otp', methods=['POST'])
 def send_otp():
+    if db is None:
+        return jsonify({"status": "error", "message": "Database configuration missing."}), 500
+
     data = request.get_json() or {}
     username = data.get('username', '').strip()
     email = data.get('email', '').strip().lower()
@@ -112,11 +64,9 @@ def send_otp():
     if not username or not email or not password:
         return jsonify({"status": "error", "message": "All fields are required."}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?", (username.lower(), email))
-    existing_user = cursor.fetchone()
-    conn.close()
+    existing_user = db.users.find_one({
+        "$or": [{"username_lower": username.lower()}, {"email": email}]
+    })
 
     if existing_user:
         return jsonify({"status": "error", "message": "Username or Email already registered."}), 409
@@ -156,6 +106,9 @@ def send_otp():
 
 @app.route('/verify_otp_and_register', methods=['POST'])
 def verify_otp_and_register():
+    if db is None:
+        return jsonify({"status": "error", "message": "Database configuration missing."}), 500
+
     data = request.get_json() or {}
     user_otp = data.get('otp', '').strip()
     pending = session.get('pending_user')
@@ -167,22 +120,24 @@ def verify_otp_and_register():
         return jsonify({"status": "error", "message": "Invalid OTP code. Please try again."}), 400
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)", 
-                       (pending['username'], pending['email'], pending['password_hash']))
-        conn.commit()
-        conn.close()
-        
+        user_doc = {
+            "username": pending['username'],
+            "username_lower": pending['username'].lower(),
+            "email": pending['email'],
+            "password_hash": pending['password_hash'],
+            "created_at": datetime.datetime.now(datetime.timezone.utc)
+        }
+        db.users.insert_one(user_doc)
         session.pop('pending_user', None)
         return jsonify({"status": "success", "message": "Account verified and registered successfully!"})
-    except sqlite3.IntegrityError:
-        return jsonify({"status": "error", "message": "Username or Email already exists."}), 409
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/login', methods=['POST'])
 def login():
+    if db is None:
+        return jsonify({"status": "error", "message": "Database configuration missing."}), 500
+
     data = request.get_json() or {}
     login_identifier = data.get('username', '').strip().lower()
     password = data.get('password', '')
@@ -190,17 +145,14 @@ def login():
     if not login_identifier or not password:
         return jsonify({"status": "error", "message": "Please enter your credentials."}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username, email, password_hash FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?", 
-                   (login_identifier, login_identifier))
-    user = cursor.fetchone()
-    conn.close()
+    user = db.users.find_one({
+        "$or": [{"username_lower": login_identifier}, {"email": login_identifier}]
+    })
 
-    if user and check_password_hash(user[3], password):
-        session['user_id'] = user[0]
-        session['username'] = user[1]
-        session['email'] = user[2]
+    if user and check_password_hash(user['password_hash'], password):
+        session['user_id'] = str(user['_id'])
+        session['username'] = user['username']
+        session['email'] = user['email']
         return jsonify({"status": "success", "message": "Access granted!"})
     else:
         return jsonify({"status": "error", "message": "Invalid username/email or password."}), 401
@@ -214,6 +166,9 @@ def logout():
 
 @app.route('/chat', methods=['POST'])
 def chat():
+    if db is None:
+        return jsonify({"reply": "Database configuration missing."}), 500
+
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"reply": "Access denied. Please log in first."}), 403
@@ -225,26 +180,22 @@ def chat():
     if not user_input:
         return jsonify({"reply": "Please enter a message."})
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
-    valid_user = cursor.fetchone()
-    conn.close()
-
-    if not valid_user:
-        session.clear()
-        return jsonify({"reply": "Your session has expired or user record was reset. Please log in again."}), 401
-
     if not session_id:
         session_id = str(uuid.uuid4())
         title = user_input[:25] + "..." if len(user_input) > 25 else user_input
         try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("INSERT OR IGNORE INTO chat_threads (session_id, user_id, title) VALUES (?, ?, ?)", 
-                           (session_id, user_id, title))
-            conn.commit()
-            conn.close()
+            db.chat_threads.update_one(
+                {"session_id": session_id},
+                {
+                    "$setOnInsert": {
+                        "session_id": session_id,
+                        "user_id": user_id,
+                        "title": title,
+                        "created_at": datetime.datetime.now(datetime.timezone.utc)
+                    }
+                },
+                upsert=True
+            )
         except Exception as db_err:
             print(f"Error creating thread: {db_err}")
 
@@ -274,12 +225,12 @@ def chat():
             reply = f"Error processing AI request: {str(e)}"
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO chat_history (session_id, user_message, bot_reply) VALUES (?, ?, ?)", 
-                       (session_id, user_input, reply))
-        conn.commit()
-        conn.close()
+        db.chat_history.insert_one({
+            "session_id": session_id,
+            "user_message": user_input,
+            "bot_reply": reply,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc)
+        })
     except Exception as db_err:
         print(f"Database logging error: {db_err}")
 
@@ -287,35 +238,43 @@ def chat():
 
 @app.route('/get_threads', methods=['GET'])
 def get_threads():
+    if db is None:
+        return jsonify({"error": "Database configuration missing."}), 500
+
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT session_id, title FROM chat_threads WHERE user_id = ? ORDER BY created_at DESC", (user_id,))
-        rows = cursor.fetchall()
-        conn.close()
-
-        threads = [{"session_id": row[0], "title": row[1] if row[1] else "Untitled Chat"} for row in rows]
+        threads_cursor = db.chat_threads.find({"user_id": user_id}).sort("created_at", -1)
+        threads = [
+            {
+                "session_id": row["session_id"],
+                "title": row.get("title", "Untitled Chat")
+            }
+            for row in threads_cursor
+        ]
         return jsonify({"threads": threads})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/get_thread_messages/<session_id>', methods=['GET'])
 def get_thread_messages(session_id):
+    if db is None:
+        return jsonify({"error": "Database configuration missing."}), 500
+
     if not session.get('user_id'):
         return jsonify({"error": "Unauthorized"}), 401
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT user_message, bot_reply FROM chat_history WHERE session_id = ? ORDER BY id ASC", (session_id,))
-        rows = cursor.fetchall()
-        conn.close()
-
-        messages = [{"user": row[0] or "", "bot": row[1] or ""} for row in rows]
+        messages_cursor = db.chat_history.find({"session_id": session_id}).sort("timestamp", 1)
+        messages = [
+            {
+                "user": row.get("user_message", ""),
+                "bot": row.get("bot_reply", "")
+            }
+            for row in messages_cursor
+        ]
         return jsonify({"messages": messages})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
