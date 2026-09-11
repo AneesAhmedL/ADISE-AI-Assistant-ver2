@@ -5,7 +5,7 @@ import datetime
 import requests
 import certifi
 from datetime import date
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, render_template_string
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from google import genai
 from pymongo import MongoClient
@@ -15,9 +15,6 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "adise_production_secure_secret_key_2026")
-
-# Set your admin email address here
-ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "adisechatbot@gmail.com").strip().lower()
 
 # --- Environment & API Configurations ---
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
@@ -70,86 +67,6 @@ def chat_page():
 def clear_session():
     session.clear()
     return redirect(url_for('home'))
-
-# --- Admin Dashboard Route ---
-
-@app.route('/admin')
-def admin_dashboard():
-    db = get_db()
-    if db is None:
-        return "Database configuration missing or unreachable.", 500
-
-    user_email = session.get('email', '').lower()
-    if not session.get('user_id') or user_email != ADMIN_EMAIL:
-        return "Unauthorized Access: Admin privileges required.", 403
-
-    users = list(db.users.find({}, {"_id": 1, "username": 1, "email": 1, "created_at": 1}))
-    
-    for u in users:
-        u['user_id_str'] = str(u['_id'])
-        threads = list(db.chat_threads.find({"user_id": u['user_id_str']}))
-        for t in threads:
-            messages = list(db.chat_history.find({"session_id": t['session_id']}).sort("timestamp", 1))
-            t['messages'] = messages
-        u['threads'] = threads
-
-    admin_html = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <title>ADISE - Admin Dashboard</title>
-        <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 20px; }
-            h1 { color: #38bdf8; border-bottom: 2px solid #334155; padding-bottom: 10px; }
-            .user-card { background: #1e293b; border-radius: 8px; padding: 15px; margin-bottom: 20px; border: 1px solid #334155; }
-            .user-header { font-size: 1.2rem; font-weight: bold; color: #f43f5e; margin-bottom: 10px; }
-            .thread-card { background: #0f172a; border-radius: 6px; padding: 10px; margin: 10px 0; border: 1px solid #475569; }
-            .thread-title { font-weight: bold; color: #38bdf8; }
-            .chat-box { font-size: 0.9rem; margin-top: 8px; }
-            .msg-user { color: #a7f3d0; margin-bottom: 4px; }
-            .msg-bot { color: #fef08a; margin-bottom: 10px; }
-            .no-chats { color: #94a3b8; font-style: italic; }
-        </style>
-    </head>
-    <body>
-        <h1>ADISE Admin Dashboard</h1>
-        {% if users %}
-            {% for user in users %}
-                <div class="user-card">
-                    <div class="user-header">User: {{ user.username }} ({{ user.email }})</div>
-                    <div><strong>User ID:</strong> {{ user.user_id_str }}</div>
-                    <div><strong>Registered On:</strong> {{ user.created_at }}</div>
-                    
-                    <h3>Chat Threads</h3>
-                    {% if user.threads %}
-                        {% for thread in user.threads %}
-                            <div class="thread-card">
-                                <div class="thread-title">Session: {{ thread.title }} (ID: {{ thread.session_id }})</div>
-                                <div class="chat-box">
-                                    {% if thread.messages %}
-                                        {% for msg in thread.messages %}
-                                            <div class="msg-user"><strong>User:</strong> {{ msg.user_message }}</div>
-                                            <div class="msg-bot"><strong>ADISE:</strong> {{ msg.bot_reply }}</div>
-                                        {% endfor %}
-                                    {% else %}
-                                        <div class="no-chats">No messages recorded in this thread.</div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="no-chats">No chat history found for this user.</div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-        {% else %}
-            <p>No registered users found.</p>
-        {% endif %}
-    </body>
-    </html>
-    """
-    return render_template_string(admin_html, users=users)
 
 # --- Authentication Routes ---
 
