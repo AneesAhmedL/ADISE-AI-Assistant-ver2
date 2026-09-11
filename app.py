@@ -22,11 +22,15 @@ BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 
 client = genai.Client()
 
-DB_NAME = "database.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, "database.db")
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_NAME, timeout=30)
-    conn.execute("PRAGMA journal_mode=WAL;")
+    conn = sqlite3.connect(DB_NAME, timeout=30.0)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+    except sqlite3.OperationalError:
+        pass
     conn.execute("PRAGMA foreign_keys=ON;")
     return conn
 
@@ -126,7 +130,6 @@ def send_otp():
         'otp': otp
     }
 
-    # Dispatch email over standard HTTPS (Port 443) using requests to bypass Render SMTP blocks
     url = "https://api.brevo.com/v3/smtp/email"
     headers = {
         "accept": "application/json",
@@ -220,6 +223,16 @@ def chat():
 
     if not user_input:
         return jsonify({"reply": "Please enter a message."})
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+    valid_user = cursor.fetchone()
+    conn.close()
+
+    if not valid_user:
+        session.clear()
+        return jsonify({"reply": "Your session has expired or user record was reset. Please log in again."}), 401
 
     if not session_id:
         session_id = str(uuid.uuid4())
