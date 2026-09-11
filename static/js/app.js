@@ -4,42 +4,50 @@ document.addEventListener("DOMContentLoaded", () => {
     const chatContainer = document.getElementById("chatMessages");
     const newChatBtn = document.getElementById("newChatBtn");
 
-    let currentSessionId = null;
+    let currentSessionId = localStorage.getItem("current_session_id") || null;
     let isProcessing = false;
 
-    // HTML-aware Typewriter Animation
-    function typeWriterHTML(element, fullText, speed = 10, onComplete = null) {
+    // Helper to render Markdown + KaTeX LaTeX Equations safely
+    function renderFormattedContent(element, text) {
+        element.innerHTML = window.marked ? marked.parse(text) : text;
+        
+        if (window.renderMathInElement) {
+            renderMathInElement(element, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '$', right: '$', display: false},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '\\[', right: '\\]', display: true}
+                ],
+                throwOnError: false
+            });
+        }
+    }
+
+    // Typewriter effect compatible with Markdown and KaTeX math expressions
+    function typeWriterHTML(element, fullText, speed = 8, onComplete = null) {
         let i = 0;
         element.innerHTML = "";
         
         function type() {
             if (i < fullText.length) {
-                if (fullText.charAt(i) === "<") {
-                    const tagEnd = fullText.indexOf(">", i);
-                    if (tagEnd !== -1) {
-                        i = tagEnd + 1;
-                    } else {
-                        i++;
-                    }
-                } else {
-                    i++;
-                }
+                // Advance typing index
+                i += 2; 
+                if (i > fullText.length) i = fullText.length;
                 
                 const currentChunk = fullText.slice(0, i);
-                element.innerHTML = window.marked ? marked.parse(currentChunk) : currentChunk;
+                renderFormattedContent(element, currentChunk);
                 if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
                 setTimeout(type, speed);
             } else {
-                element.innerHTML = window.marked ? marked.parse(fullText) : fullText;
+                renderFormattedContent(element, fullText);
                 if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
-                
                 if (onComplete) onComplete();
             }
         }
         type();
     }
 
-    // Lock UI controls while waiting or typing
     function lockUI() {
         isProcessing = true;
         if (sendBtn) {
@@ -49,7 +57,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (inputField) inputField.disabled = true;
     }
 
-    // Unlock UI controls after completion
     function unlockUI() {
         isProcessing = false;
         if (sendBtn) {
@@ -62,14 +69,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Fetch and populate sidebar chat threads
     async function loadSidebarThreads() {
         try {
             const res = await fetch("/get_threads");
             if (!res.ok) return;
 
             const data = await res.json();
-            const sidebarContainer = document.querySelector(".recent-chats") || document.getElementById("recentChats");
+            const sidebarContainer = document.getElementById("threadsList") || document.querySelector(".recent-chats");
 
             if (sidebarContainer && data.threads) {
                 sidebarContainer.innerHTML = "";
@@ -86,18 +92,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Load conversation when clicking a sidebar thread item
     async function loadThreadMessages(sessionId) {
         if (isProcessing || !chatContainer) return;
 
         currentSessionId = sessionId;
+        localStorage.setItem("current_session_id", sessionId);
         chatContainer.innerHTML = "";
 
         try {
             const res = await fetch(`/get_thread_messages/${sessionId}`);
-
             if (!res.ok) {
-                console.error(`HTTP error! status: ${res.status}`);
                 renderErrorBubble("Failed to retrieve chat history.");
                 return;
             }
@@ -109,11 +113,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (msg.user) {
                         renderUserBubble(msg.user);
                     }
-
                     if (msg.bot) {
                         const botBubble = document.createElement("div");
                         botBubble.className = "message bot";
-                        botBubble.innerHTML = window.marked ? marked.parse(msg.bot) : msg.bot;
+                        renderFormattedContent(botBubble, msg.bot);
                         chatContainer.appendChild(botBubble);
                     }
                 });
@@ -144,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const botBubble = document.createElement("div");
         botBubble.className = "message bot";
         chatContainer.appendChild(botBubble);
-        typeWriterHTML(botBubble, text, 10, callback);
+        typeWriterHTML(botBubble, text, 8, callback);
     }
 
     function renderErrorBubble(errorText) {
@@ -156,7 +159,6 @@ document.addEventListener("DOMContentLoaded", () => {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
-    // Main Send Message Function
     async function sendMessage() {
         if (isProcessing || !inputField) return;
 
@@ -164,7 +166,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!message) return;
 
         lockUI();
-
         renderUserBubble(message);
         inputField.value = "";
 
@@ -182,6 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (data.session_id) {
                 currentSessionId = data.session_id;
+                localStorage.setItem("current_session_id", data.session_id);
             }
 
             const replyText = data.reply || "No response received.";
@@ -190,12 +192,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 unlockUI();
                 loadSidebarThreads();
             });
-
-            if (data.action === "open_url" && data.url) {
-                window.open(data.url, "_blank");
-            } else if (data.action === "logout") {
-                setTimeout(() => window.location.href = "/", 1000);
-            }
         } catch (err) {
             renderErrorBubble("Unable to communicate with the server.");
             unlockUI();
@@ -218,11 +214,13 @@ document.addEventListener("DOMContentLoaded", () => {
         newChatBtn.addEventListener("click", () => {
             if (isProcessing) return;
             currentSessionId = null;
-            if (chatContainer) chatContainer.innerHTML = "";
+            localStorage.removeItem("current_session_id");
+            if (chatContainer) {
+                chatContainer.innerHTML = '<div class="message bot">Welcome to ADISE Chatbot! Ask ADISE anything you want to know.</div>';
+            }
         });
     }
 
-    // Initialize sidebar threads if chat element exists
     if (chatContainer) {
         loadSidebarThreads();
     }

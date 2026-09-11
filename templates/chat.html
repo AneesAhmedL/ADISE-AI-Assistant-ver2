@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ADISE - Workspace</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+    
+    <!-- KaTeX CSS for LaTeX Math Formatting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
     <style>
         html, body {
             height: 100%;
@@ -135,11 +139,32 @@ onmouseout="this.style.background='linear-gradient(135deg, #e11d48, #9f1239)'; t
         </main>
     </div>
 
+    <!-- External Rendering Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 
     <!-- Chat History Persistence & Logout Script -->
     <script>
+        function renderFormattedText(element, rawText) {
+            let html = window.marked ? marked.parse(rawText) : rawText;
+            element.innerHTML = html;
+            
+            if (window.renderMathInElement) {
+                renderMathInElement(element, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '\\[', right: '\\]', display: true}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+
         async function loadActiveThreadMessages(sessionId) {
             const chatBox = document.getElementById("chatMessages");
             try {
@@ -150,11 +175,16 @@ onmouseout="this.style.background='linear-gradient(135deg, #e11d48, #9f1239)'; t
                     chatBox.innerHTML = "";
                     data.messages.forEach(msg => {
                         if (msg.user) {
-                            chatBox.innerHTML += `<div class="message user">${msg.user}</div>`;
+                            const userDiv = document.createElement("div");
+                            userDiv.className = "message user";
+                            userDiv.textContent = msg.user;
+                            chatBox.appendChild(userDiv);
                         }
                         if (msg.bot) {
-                            const botHtml = typeof marked !== 'undefined' ? marked.parse(msg.bot) : msg.bot;
-                            chatBox.innerHTML += `<div class="message bot">${botHtml}</div>`;
+                            const botDiv = document.createElement("div");
+                            botDiv.className = "message bot";
+                            renderFormattedText(botDiv, msg.bot);
+                            chatBox.appendChild(botDiv);
                         }
                     });
                     chatBox.scrollTop = chatBox.scrollHeight;
