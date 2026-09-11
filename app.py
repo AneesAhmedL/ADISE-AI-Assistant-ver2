@@ -25,6 +25,7 @@ app.config.update(
 # --- Environment & API Configurations ---
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
+GEMINI_API_KEY_2 = os.getenv("GEMINI_API_KEY_2", "") or os.getenv("GOOGLE_API_KEY_2", "")
 MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
 if MONGO_URI.startswith("MONGODB_URI="):
@@ -49,15 +50,27 @@ def get_db():
             return None
     return mongo_client["adise_db"]
 
-# --- Helper Function: Google Gemini AI Generator ---
+# --- Helper Function: Google Gemini AI Generator with Dual-Key Fallback (3.6 Only) ---
 def generate_ai_response(user_input, system_instruction):
     """
-    Google Gemini Dedicated AI Engine
+    Tries Primary Gemini Key first with Gemini 3.6 Flash. 
+    If exhausted or rate-limited, automatically switches to Secondary Gemini Key with Gemini 3.6 Flash.
     """
-    if GEMINI_API_KEY:
+    keys_to_try = [
+        ("Primary Key", GEMINI_API_KEY),
+        ("Secondary Key", GEMINI_API_KEY_2)
+    ]
+    
+    # Strictly using Gemini 3.6 Flash as requested
+    gemini_models = ["gemini-3.6-flash"]
+
+    for key_name, api_key in keys_to_try:
+        if not api_key:
+            print(f"[GEMINI SKIP] {key_name} is not set.")
+            continue
+
         try:
-            gemini_client = genai.Client(api_key=GEMINI_API_KEY)
-            gemini_models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+            gemini_client = genai.Client(api_key=api_key)
             for model in gemini_models:
                 try:
                     response = gemini_client.models.generate_content(
@@ -67,14 +80,12 @@ def generate_ai_response(user_input, system_instruction):
                     )
                     if response and response.text:
                         return response.text
-                except Exception as e:
-                    print(f"[GEMINI EXCEPTION] {model}: {str(e)}")
-        except Exception as e:
-            print(f"[GEMINI CLIENT INIT ERROR]: {str(e)}")
-    else:
-        print("[GEMINI SKIP] GEMINI_API_KEY or GOOGLE_API_KEY is not set in environment variables.")
+                except Exception as model_err:
+                    print(f"[{key_name} - Model {model} Error]: {str(model_err)}")
+        except Exception as client_err:
+            print(f"[{key_name} Client Init Error]: {str(client_err)}")
 
-    return "All AI provider endpoints are currently experiencing heavy traffic. Please try again in a few seconds."
+    return "All AI provider endpoints are currently experiencing heavy traffic or rate limits. Please try again later."
 
 # --- Page Navigation Routes ---
 
