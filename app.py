@@ -20,6 +20,7 @@ app.secret_key = os.getenv("SECRET_KEY", "adise_production_secure_secret_key_202
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
+# Clean MONGO_URI if a prefix was added accidentally in Environment Variables
 if MONGO_URI.startswith("MONGODB_URI="):
     MONGO_URI = MONGO_URI.replace("MONGODB_URI=", "")
 
