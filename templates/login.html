@@ -15,6 +15,7 @@
         .form-group input:focus { border-color: #38bdf8; }
         .btn { width: 100%; padding: 0.8rem; border: none; border-radius: 6px; background: #0284c7; color: #fff; font-weight: bold; cursor: pointer; transition: background 0.2s; font-size: 1rem; }
         .btn:hover { background: #0369a1; }
+        .btn:disabled { background: #475569; cursor: not-allowed; }
         .toggle-text { margin-top: 1.2rem; text-align: center; font-size: 0.85rem; color: #94a3b8; }
         .toggle-text a { color: #38bdf8; text-decoration: none; cursor: pointer; font-weight: bold; }
         .alert { margin-bottom: 1rem; padding: 0.6rem; border-radius: 6px; font-size: 0.85rem; text-align: center; display: none; }
@@ -114,7 +115,7 @@
         e.preventDefault();
         alertBox.style.display = "none";
 
-        // --- Step 1: Login ---
+        // Step 1: Handle Login
         if (!isRegistering) {
             try {
                 const res = await fetch("/login", {
@@ -145,7 +146,7 @@
             return;
         }
 
-        // --- Step 2: Request OTP during Registration ---
+        // Step 2: Handle Initial OTP Dispatch
         if (isRegistering && !awaitingOTP) {
             try {
                 submitBtn.textContent = "Sending OTP...";
@@ -170,7 +171,6 @@
                     alertBox.textContent = data.message;
                     alertBox.style.display = "block";
 
-                    // Hide credentials fields, show OTP input
                     usernameGroup.style.display = "none";
                     loginIdGroup.style.display = "none";
                     passwordGroup.style.display = "none";
@@ -193,7 +193,7 @@
             return;
         }
 
-        // --- Step 3: Verify OTP and Finish Registration ---
+        // Step 3: Verify OTP and Register Account
         if (isRegistering && awaitingOTP) {
             try {
                 const res = await fetch("/verify_otp_and_register", {

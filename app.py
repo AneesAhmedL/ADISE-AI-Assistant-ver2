@@ -7,7 +7,7 @@ import datetime
 import wikipedia
 from threading import Thread
 from datetime import date
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_mail import Mail, Message
 from google import genai
@@ -20,12 +20,14 @@ app.secret_key = os.getenv("SECRET_KEY", "adise_production_secure_secret_key_202
 
 # --- Flask-Mail Configuration ---
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_MAX_EMAILS'] = None
+app.config['MAIL_ASCII_ATTACHMENTS'] = False
 
 mail = Mail(app)
 client = genai.Client()
@@ -86,9 +88,9 @@ def send_async_email(app_instance, msg):
     with app_instance.app_context():
         try:
             mail.send(msg)
-            print("OTP email sent successfully!")
+            print("[SUCCESS] OTP email delivered.")
         except Exception as e:
-            print(f"Async email delivery error: {e}")
+            print(f"[ERROR] Async email delivery error: {type(e).__name__} - {str(e)}")
 
 # --- Page Navigation Routes ---
 
@@ -125,7 +127,6 @@ def send_otp():
     if not username or not email or not password:
         return jsonify({"status": "error", "message": "All fields are required."}), 400
 
-    # Check if username or email already exists
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT id FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?", (username.lower(), email))
@@ -135,10 +136,8 @@ def send_otp():
     if existing_user:
         return jsonify({"status": "error", "message": "Username or Email already registered."}), 409
 
-    # Generate 6-digit OTP
     otp = str(random.randint(100000, 999999))
     
-    # Store registration details temporarily in session
     session['pending_user'] = {
         'username': username,
         'email': email,
@@ -146,17 +145,13 @@ def send_otp():
         'otp': otp
     }
 
-    # Send OTP Email using background thread
     try:
-        msg = Message("ADISE - Email Verification Code",
-                      sender=app.config['MAIL_USERNAME'],
-                      recipients=[email])
+        msg = Message("ADISE - Email Verification Code", recipients=[email])
         msg.body = f"Hello {username},\n\nYour OTP verification code for ADISE is: {otp}\n\nDo not share this code with anyone."
         
-        # Async execution prevents socket block on Render
-        Thread(target=send_async_email, args=(app, msg)).start()
+        Thread(target=send_async_email, args=(current_app._get_current_object(), msg)).start()
         
-        return jsonify({"status": "success", "message": f"OTP code sent to {email}"})
+        return jsonify({"status": "success", "message": f"OTP code dispatched to {email}"})
     except Exception as e:
         return jsonify({"status": "error", "message": f"Failed to initiate OTP email: {str(e)}"}), 500
 
@@ -172,7 +167,6 @@ def verify_otp_and_register():
     if user_otp != pending.get('otp'):
         return jsonify({"status": "error", "message": "Invalid OTP code. Please try again."}), 400
 
-    # Save verified user to database
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -246,7 +240,6 @@ def chat():
 
     user_input_lower = user_input.lower()
 
-    # Direct hardcoded command checks
     if "hello" in user_input_lower or "hi" in user_input_lower:
         reply = f"Hello {session.get('username')}! How can I help you today?"
     elif "time" in user_input_lower:
