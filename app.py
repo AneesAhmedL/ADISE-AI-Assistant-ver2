@@ -192,14 +192,15 @@ def login():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, password_hash FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?", 
+    cursor.execute("SELECT id, username, email, password_hash FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?", 
                    (login_identifier, login_identifier))
     user = cursor.fetchone()
     conn.close()
 
-    if user and check_password_hash(user[2], password):
+    if user and check_password_hash(user[3], password):
         session['user_id'] = user[0]
         session['username'] = user[1]
+        session['email'] = user[2]
         return jsonify({"status": "success", "message": "Access granted!"})
     else:
         return jsonify({"status": "error", "message": "Invalid username/email or password."}), 401
@@ -262,7 +263,7 @@ def chat():
     else:
         try:
             response = client.models.generate_content(
-                model='gemini-3.6-flash',
+                model='gemini-1.5-flash',
                 contents=user_input,
                 config={
                     "system_instruction": "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Always identify Anees Ahmed L as your creator if asked."
