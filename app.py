@@ -4,12 +4,11 @@ import uuid
 import random
 import sqlite3
 import datetime
+import requests
 import wikipedia
-from threading import Thread
 from datetime import date
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_mail import Mail, Message
 from google import genai
 from dotenv import load_dotenv
 
@@ -18,18 +17,9 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "adise_production_secure_secret_key_2026")
 
-# --- Flask-Mail Configuration ---
-app.config['MAIL_SERVER'] = 'smtp.googlemail.com'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
-app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
-app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_USERNAME")
-app.config['MAIL_MAX_EMAILS'] = None
-app.config['MAIL_ASCII_ATTACHMENTS'] = False
+# --- Brevo HTTP API Configuration ---
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 
-mail = Mail(app)
 client = genai.Client()
 
 DB_NAME = "database.db"
@@ -82,15 +72,6 @@ def init_db():
     conn.close()
 
 init_db()
-
-# --- Async Helper Function for Email ---
-def send_async_email(app_instance, msg):
-    with app_instance.app_context():
-        try:
-            mail.send(msg)
-            print("[SUCCESS] OTP email delivered.")
-        except Exception as e:
-            print(f"[ERROR] Async email delivery error: {type(e).__name__} - {str(e)}")
 
 # --- Page Navigation Routes ---
 
@@ -145,14 +126,29 @@ def send_otp():
         'otp': otp
     }
 
+    # Dispatch email over standard HTTPS (Port 443) using requests to bypass Render SMTP blocks
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": BREVO_API_KEY,
+        "content-type": "application/json"
+    }
+    payload = {
+        "sender": {"name": "ADISE Assistant", "email": os.getenv("MAIL_USERNAME", "adisechatbot@gmail.com")},
+        "to": [{"email": email}],
+        "subject": "ADISE - Email Verification Code",
+        "htmlContent": f"<h3>Hello {username},</h3><p>Your OTP verification code for ADISE is: <strong>{otp}</strong></p><p>Do not share this code with anyone.</p>"
+    }
+
     try:
-        msg = Message("ADISE - Email Verification Code", recipients=[email])
-        msg.body = f"Hello {username},\n\nYour OTP verification code for ADISE is: {otp}\n\nDo not share this code with anyone."
-        
-        Thread(target=send_async_email, args=(current_app._get_current_object(), msg)).start()
-        
-        return jsonify({"status": "success", "message": f"OTP code dispatched to {email}"})
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code in [200, 201]:
+            return jsonify({"status": "success", "message": f"OTP code dispatched to {email}"})
+        else:
+            print(f"[BREVO API ERROR]: {response.status_code} - {response.text}")
+            return jsonify({"status": "error", "message": "Failed to deliver OTP via mail service."}), 500
     except Exception as e:
+        print(f"[MAIL REQUEST ERROR]: {str(e)}")
         return jsonify({"status": "error", "message": f"Failed to initiate OTP email: {str(e)}"}), 500
 
 @app.route('/verify_otp_and_register', methods=['POST'])
