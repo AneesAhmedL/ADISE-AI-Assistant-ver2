@@ -26,6 +26,7 @@ app.config.update(
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
 GEMINI_API_KEY_2 = os.getenv("GEMINI_API_KEY_2", "") or os.getenv("GOOGLE_API_KEY_2", "")
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
 if MONGO_URI.startswith("MONGODB_URI="):
@@ -50,25 +51,23 @@ def get_db():
             return None
     return mongo_client["adise_db"]
 
-# --- Helper Function: Google Gemini AI Generator with Dual-Key Fallback (3.6 Only) ---
+# --- Helper Function: Multi-Tier Failover (Gemini Keys -> Hugging Face) ---
 def generate_ai_response(user_input, system_instruction):
     """
-    Tries Primary Gemini Key first with Gemini 3.6 Flash. 
-    If exhausted or rate-limited, automatically switches to Secondary Gemini Key with Gemini 3.6 Flash.
+    Tries Gemini Primary Key, then Secondary Key (Gemini 3.6 Flash).
+    If both fail or are rate-limited, falls over to Hugging Face Llama 3.1 router.
     """
-    keys_to_try = [
-        ("Primary Key", GEMINI_API_KEY),
-        ("Secondary Key", GEMINI_API_KEY_2)
-    ]
     
-    # Strictly using Gemini 3.6 Flash as requested
+    # 1. Try Gemini Keys First
+    gemini_keys = [
+        ("Primary Gemini Key", GEMINI_API_KEY),
+        ("Secondary Gemini Key", GEMINI_API_KEY_2)
+    ]
     gemini_models = ["gemini-3.6-flash"]
 
-    for key_name, api_key in keys_to_try:
+    for key_name, api_key in gemini_keys:
         if not api_key:
-            print(f"[GEMINI SKIP] {key_name} is not set.")
             continue
-
         try:
             gemini_client = genai.Client(api_key=api_key)
             for model in gemini_models:
@@ -84,6 +83,34 @@ def generate_ai_response(user_input, system_instruction):
                     print(f"[{key_name} - Model {model} Error]: {str(model_err)}")
         except Exception as client_err:
             print(f"[{key_name} Client Init Error]: {str(client_err)}")
+
+    # 2. Fallover to Hugging Face if Gemini fails or is exhausted
+    if HUGGINGFACE_API_KEY:
+        print("[FALLOVER] Switching to Hugging Face backup provider...")
+        API_URL = "https://router.huggingface.co/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "meta-llama/Llama-3.1-8B-Instruct",
+            "messages": [
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_input}
+            ],
+            "max_tokens": 512,
+            "temperature": 0.7
+        }
+        try:
+            response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                if "choices" in result and len(result["choices"]) > 0:
+                    return result["choices"][0]["message"]["content"].strip()
+            else:
+                print(f"[HUGGINGFACE API ERROR {response.status_code}]: {response.text}")
+        except Exception as e:
+            print(f"[HUGGINGFACE EXCEPTION]: {str(e)}")
 
     return "All AI provider endpoints are currently experiencing heavy traffic or rate limits. Please try again later."
 
@@ -278,10 +305,8 @@ def chat():
     elif "date" in user_input_lower:
         today = date.today().strftime("%d-%m-%Y")
         reply = f"Today is {today}"
-    elif any(k in user_input_lower for k in ["creator", "who made you", "who created you", "who built you", "developer"]):
-        reply = "I was created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student."
     else:
-        system_instruction = "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Always identify Anees Ahmed L as your creator if asked."
+        system_instruction = "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Answer user questions naturally and intelligently."
         reply = generate_ai_response(user_input, system_instruction)
 
     try:
