@@ -175,8 +175,11 @@ def send_otp():
         "api-key": BREVO_API_KEY,
         "content-type": "application/json"
     }
+    
+    sender_email = os.getenv("MAIL_USERNAME", "").strip() or "adisechatbot@gmail.com"
+    
     payload = {
-        "sender": {"name": "ADISE Assistant", "email": os.getenv("MAIL_USERNAME", "adisechatbot@gmail.com")},
+        "sender": {"name": "ADISE Assistant", "email": sender_email},
         "to": [{"email": email}],
         "subject": "ADISE - Email Verification Code",
         "htmlContent": f"<h3>Hello {username},</h3><p>Your OTP verification code for ADISE is: <strong>{otp}</strong></p><p>Do not share this code with anyone.</p>"
@@ -188,7 +191,7 @@ def send_otp():
             return jsonify({"status": "success", "message": f"OTP code dispatched to {email}"})
         else:
             print(f"[BREVO API ERROR]: {response.status_code} - {response.text}")
-            return jsonify({"status": "error", "message": "Failed to deliver OTP via mail service."}), 500
+            return jsonify({"status": "error", "message": f"Failed to deliver OTP via mail service: {response.text}"}), 500
     except Exception as e:
         print(f"[MAIL REQUEST ERROR]: {str(e)}")
         return jsonify({"status": "error", "message": f"Failed to initiate OTP email: {str(e)}"}), 500
