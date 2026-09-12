@@ -280,20 +280,34 @@ def chat():
         session_id = str(uuid.uuid4())
         title = user_input[:25] + "..." if len(user_input) > 25 else user_input
         try:
-            db.chat_threads.update_one(
-                {"session_id": session_id},
-                {
-                    "$setOnInsert": {
-                        "session_id": session_id,
-                        "user_id": user_id,
-                        "title": title,
-                        "created_at": datetime.datetime.now(datetime.timezone.utc)
-                    }
-                },
-                upsert=True
-            )
+            db.chat_threads.insert_one({
+                "session_id": session_id,
+                "user_id": user_id,
+                "title": title,
+                "created_at": datetime.datetime.now(datetime.timezone.utc)
+            })
         except Exception as db_err:
             print(f"Error creating thread: {db_err}")
+    else:
+        existing_thread = db.chat_threads.find_one({"session_id": session_id, "user_id": user_id})
+        if not existing_thread:
+            title = user_input[:25] + "..." if len(user_input) > 25 else user_input
+            try:
+                db.chat_threads.update_one(
+                    {"session_id": session_id},
+                    {
+                        "$set": {
+                            "user_id": user_id,
+                            "title": title
+                        },
+                        "$setOnInsert": {
+                            "created_at": datetime.datetime.now(datetime.timezone.utc)
+                        }
+                    },
+                    upsert=True
+                )
+            except Exception as db_err:
+                print(f"Error updating/inserting thread: {db_err}")
 
     user_input_lower = user_input.lower()
 
@@ -312,6 +326,7 @@ def chat():
     try:
         db.chat_history.insert_one({
             "session_id": session_id,
+            "user_id": user_id,
             "user_message": user_input,
             "bot_reply": reply,
             "timestamp": datetime.datetime.now(datetime.timezone.utc)
