@@ -371,7 +371,7 @@ def get_thread_messages(session_id):
         return jsonify({"error": "Database configuration missing or unreachable."}), 500
 
     if not session.get('user_id'):
-        return jsonify({"error": "Unauthorized"}}, 401
+        return jsonify({"error": "Unauthorized"}), 401
 
     try:
         messages_cursor = db.chat_history.find({"session_id": session_id}).sort("timestamp", 1)
