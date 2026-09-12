@@ -161,6 +161,7 @@ def send_otp():
         return jsonify({"status": "error", "message": "Username or Email already registered."}), 409
 
     otp = str(random.randint(100000, 999999))
+    print(f"[DEBUG] Generated OTP for {email}: {otp}")  # Prints code in terminal/Render logs as a failsafe
     
     session['pending_user'] = {
         'username': username,
@@ -168,6 +169,7 @@ def send_otp():
         'password_hash': generate_password_hash(password),
         'otp': otp
     }
+    session.modified = True
 
     url = "https://api.brevo.com/v3/smtp/email"
     headers = {
@@ -207,7 +209,7 @@ def verify_otp_and_register():
     pending = session.get('pending_user')
 
     if not pending:
-        return jsonify({"status": "error", "message": "Session expired or invalid registration flow."}), 400
+        return jsonify({"status": "error", "message": "Session expired or invalid registration flow. Please request a new OTP."}), 400
 
     if user_otp != pending.get('otp'):
         return jsonify({"status": "error", "message": "Invalid OTP code. Please try again."}), 400
@@ -323,7 +325,7 @@ def chat():
         today = date.today().strftime("%d-%m-%Y")
         reply = f"Today is {today}"
     else:
-        system_instruction = "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Answer user questions naturally and intelligently."
+        system_instruction = "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Answer user questions normally and intelligently."
         reply = generate_ai_response(user_input, system_instruction)
 
     try:
@@ -369,7 +371,7 @@ def get_thread_messages(session_id):
         return jsonify({"error": "Database configuration missing or unreachable."}), 500
 
     if not session.get('user_id'):
-        return jsonify({"error": "Unauthorized"}), 401
+        return jsonify({"error": "Unauthorized"}}, 401
 
     try:
         messages_cursor = db.chat_history.find({"session_id": session_id}).sort("timestamp", 1)
