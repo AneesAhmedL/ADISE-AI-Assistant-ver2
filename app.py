@@ -161,7 +161,7 @@ def send_otp():
         return jsonify({"status": "error", "message": "Username or Email already registered."}), 409
 
     otp = str(random.randint(100000, 999999))
-    print(f"[DEBUG] Generated OTP for {email}: {otp}")  # Prints code in terminal/Render logs as a failsafe
+    print(f"[DEBUG] Generated OTP for {email}: {otp}")
     
     session['pending_user'] = {
         'username': username,
@@ -325,7 +325,14 @@ def chat():
         today = date.today().strftime("%d-%m-%Y")
         reply = f"Today is {today}"
     else:
-        system_instruction = "Your name is ADISE. You were created and developed by Anees Ahmed L, a Computer Science Engineering (CSE) student. Answer user questions normally and intelligently."
+        system_instruction = (
+            "Your name is ADISE. You were created and developed by Anees Ahmed L, "
+            "a Computer Science Engineering (CSE) student. "
+            "Today's date is September 13, 2026. "
+            "Provide accurate, up-to-date, and direct answers. "
+            "If answering questions about political offices, current leaders, or dynamic events, "
+            "ensure you reflect accurate current data for the year 2026."
+        )
         reply = generate_ai_response(user_input, system_instruction)
 
     try:
