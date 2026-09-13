@@ -4,7 +4,7 @@ import random
 import datetime
 import requests
 import certifi
-from datetime import date
+from datetime import date, timezone, timedelta
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from google import genai
@@ -314,8 +314,9 @@ def chat():
             except Exception as db_err:
                 print(f"Error updating/inserting thread: {db_err}")
 
-    # --- Dynamic Time & System Instructions ---
-    current_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S (%A)")
+    # --- Accurate IST Time & System Instructions Fix ---
+    IST = timezone(timedelta(hours=5, minutes=30))
+    current_time_str = datetime.datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S (%A) [IST]")
 
     system_instruction = (
         f"Current exact date and time: {current_time_str}. "
