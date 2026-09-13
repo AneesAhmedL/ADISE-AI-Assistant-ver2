@@ -314,26 +314,16 @@ def chat():
             except Exception as db_err:
                 print(f"Error updating/inserting thread: {db_err}")
 
-    user_input_lower = user_input.lower()
-
-    if "hello" in user_input_lower or "hi" in user_input_lower:
-        reply = f"Hello {session.get('username')}! How can I help you today?"
-    elif "time" in user_input_lower:
-        current_time = datetime.datetime.now().strftime("%I:%M:%S %p")
-        reply = f"The time is now {current_time}"
-    elif "date" in user_input_lower:
-        today = date.today().strftime("%d-%m-%Y")
-        reply = f"Today is {today}"
-    else:
-        system_instruction = (
-            "Your name is ADISE. You were created and developed by Anees Ahmed L, "
-            "a Computer Science Engineering (CSE) student. "
-            "Today's date is September 13, 2026. "
-            "Provide accurate, up-to-date, and direct answers. "
-            "If answering questions about political offices, current leaders, or dynamic events, "
-            "ensure you reflect accurate current data for the year 2026."
-        )
-        reply = generate_ai_response(user_input, system_instruction)
+    # --- Direct AI Processing (No text hardcoded overrides) ---
+    system_instruction = (
+        "Your name is ADISE. You were created and developed by Anees Ahmed L, "
+        "a Computer Science Engineering (CSE) student. "
+        "Today's date is September 13, 2026. "
+        "You are an expert technical AI assistant capable of answering complex computer science, "
+        "networking concepts (such as Subnetting, MTU/Fragmentation, ARP, DHCP, Route Summarization), "
+        "and multi-threaded programming assignments. Provide clear, structured, and accurate answers."
+    )
+    reply = generate_ai_response(user_input, system_instruction)
 
     try:
         db.chat_history.insert_one({
@@ -395,3 +385,4 @@ def get_thread_messages(session_id):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
