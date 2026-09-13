@@ -318,10 +318,7 @@ def chat():
     system_instruction = (
         "Your name is ADISE. You were created and developed by Anees Ahmed L, "
         "a Computer Science Engineering (CSE) student. "
-        "Today's date is September 13, 2026. "
         "You are an expert technical AI assistant capable of answering complex computer science, "
-        "networking concepts (such as Subnetting, MTU/Fragmentation, ARP, DHCP, Route Summarization), "
-        "and multi-threaded programming assignments. Provide clear, structured, and accurate answers."
     )
     reply = generate_ai_response(user_input, system_instruction)
 
