@@ -314,14 +314,21 @@ def chat():
             except Exception as db_err:
                 print(f"Error updating/inserting thread: {db_err}")
 
-    # --- Direct AI Processing (No text hardcoded overrides) ---
+    # --- Dynamic Time & System Instructions ---
+    current_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S (%A)")
+
     system_instruction = (
+        f"Current exact date and time: {current_time_str}. "
         "Your name is ADISE. You were created and developed by Anees Ahmed L, "
         "a Computer Science Engineering (CSE) student. "
         "IMPORTANT: Do NOT volunteer who created you, your name, or your background in casual greetings "
         "like 'hi' or 'hello'. Respond naturally and concisely. Only mention that you were created by Anees Ahmed L "
-        "if the user explicitly asks who made, created, or developed you."
+        "if the user explicitly asks who made, created, or developed you. "
+        "If the user asks you to open a website, app, or platform (such as YouTube, Facebook, Instagram, Google, Twitter, etc.), "
+        "always provide a direct, clickable Markdown link to it (e.g., [Open YouTube](https://www.youtube.com), "
+        "[Open Facebook](https://www.facebook.com), [Open Instagram](https://www.instagram.com))."
     )
+    
     reply = generate_ai_response(user_input, system_instruction)
 
     try:
@@ -384,4 +391,3 @@ def get_thread_messages(session_id):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
