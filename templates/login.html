@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        body { background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
         .auth-card { background: #1e293b; padding: 2.2rem; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .auth-card h2 { text-align: center; margin-bottom: 1.5rem; color: #38bdf8; font-size: 1.6rem; }
         .form-group { margin-bottom: 1.2rem; }
@@ -24,11 +24,18 @@
         .btn { width: 100%; padding: 0.8rem; border: none; border-radius: 6px; background: #0284c7; color: #fff; font-weight: bold; cursor: pointer; transition: background 0.2s; font-size: 1rem; }
         .btn:hover { background: #0369a1; }
         .btn:disabled { background: #475569; cursor: not-allowed; }
+        
         .toggle-text { margin-top: 1.2rem; text-align: center; font-size: 0.85rem; color: #94a3b8; }
         .toggle-text a { color: #38bdf8; text-decoration: none; cursor: pointer; font-weight: bold; }
+        
         .alert { margin-bottom: 1rem; padding: 0.6rem; border-radius: 6px; font-size: 0.85rem; text-align: center; display: none; }
         .alert.error { background: #7f1d1d; color: #fca5a5; }
         .alert.success { background: #14532d; color: #86efac; }
+
+        /* Admin Link Button Styling */
+        .admin-link-container { margin-top: 1.5rem; text-align: center; }
+        .admin-btn { background: transparent; border: 1px dashed #475569; color: #94a3b8; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.85rem; cursor: pointer; text-decoration: none; display: inline-block; transition: all 0.2s; }
+        .admin-btn:hover { border-color: #38bdf8; color: #38bdf8; background: rgba(56, 189, 248, 0.05); }
     </style>
 </head>
 <body>
@@ -69,6 +76,13 @@
         <span id="toggleMsg">Don't have an account?</span>
         <a id="toggleBtn">Register</a>
     </div>
+</div>
+
+<!-- Admin Portal Navigation Button -->
+<div class="admin-link-container">
+    <a href="/adise_secure_admin_portal_99" class="admin-btn">
+        <i class="fa-solid fa-shield-halved"></i> Are you an Admin?
+    </a>
 </div>
 
 <script>
