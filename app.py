@@ -8,6 +8,7 @@ from datetime import date, timezone, timedelta
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from google import genai
+from google.genai import types
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -54,7 +55,7 @@ def get_db():
 # --- Helper Function: Multi-Tier Failover with Google Search Grounding ---
 def generate_ai_response(user_input, system_instruction):
     """
-    Tries Gemini Primary Key, then Secondary Key (with Google Search Grounding enabled).
+    Tries Gemini Primary Key, then Secondary Key using gemini-3.6-flash (with Google Search Grounding enabled).
     If both fail or are rate-limited, falls over to Hugging Face Llama 3.1 router.
     """
     
@@ -63,27 +64,27 @@ def generate_ai_response(user_input, system_instruction):
         ("Primary Gemini Key", GEMINI_API_KEY),
         ("Secondary Gemini Key", GEMINI_API_KEY_2)
     ]
-    gemini_models = ["gemini-3.6-flash"]
+    model = "gemini-3.6-flash"
 
     for key_name, api_key in gemini_keys:
         if not api_key:
             continue
         try:
             gemini_client = genai.Client(api_key=api_key)
-            for model in gemini_models:
-                try:
-                    response = gemini_client.models.generate_content(
-                        model=model,
-                        contents=user_input,
-                        config={
-                            "system_instruction": system_instruction,
-                            "tools": [{"type": "google_search"}] # Enables live Google Search Grounding
-                        }
+            try:
+                response = gemini_client.models.generate_content(
+                    model=model,
+                    contents=user_input,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        tools=[{"google_search": {}}], # Enables live Google Search Grounding via types config
+                        temperature=0.3
                     )
-                    if response and response.text:
-                        return response.text
-                except Exception as model_err:
-                    print(f"[{key_name} - Model {model} Error]: {str(model_err)}")
+                )
+                if response and response.text:
+                    return response.text
+            except Exception as model_err:
+                print(f"[{key_name} - Model {model} Error]: {str(model_err)}")
         except Exception as client_err:
             print(f"[{key_name} Client Init Error]: {str(client_err)}")
 
@@ -102,7 +103,7 @@ def generate_ai_response(user_input, system_instruction):
                 {"role": "user", "content": user_input}
             ],
             "max_tokens": 512,
-            "temperature": 0.7
+            "temperature": 0.3
         }
         try:
             response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
