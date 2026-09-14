@@ -51,14 +51,14 @@ def get_db():
             return None
     return mongo_client["adise_db"]
 
-# --- Helper Function: Multi-Tier Failover (Gemini Keys -> Hugging Face) ---
+# --- Helper Function: Multi-Tier Failover with Google Search Grounding ---
 def generate_ai_response(user_input, system_instruction):
     """
-    Tries Gemini Primary Key, then Secondary Key (Gemini 3.6 Flash).
+    Tries Gemini Primary Key, then Secondary Key (with Google Search Grounding enabled).
     If both fail or are rate-limited, falls over to Hugging Face Llama 3.1 router.
     """
     
-    # 1. Try Gemini Keys First
+    # 1. Try Gemini Keys First (With Google Search Grounding)
     gemini_keys = [
         ("Primary Gemini Key", GEMINI_API_KEY),
         ("Secondary Gemini Key", GEMINI_API_KEY_2)
@@ -75,7 +75,10 @@ def generate_ai_response(user_input, system_instruction):
                     response = gemini_client.models.generate_content(
                         model=model,
                         contents=user_input,
-                        config={"system_instruction": system_instruction}
+                        config={
+                            "system_instruction": system_instruction,
+                            "tools": [{"type": "google_search"}] # Enables live Google Search Grounding
+                        }
                     )
                     if response and response.text:
                         return response.text
