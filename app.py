@@ -317,7 +317,7 @@ def chat():
             except Exception as db_err:
                 print(f"Error updating/inserting thread: {db_err}")
 
-    # --- Accurate IST Time & System Instructions Fix ---
+    # --- Accurate IST Time & Strict Real-Time Instructions Fix ---
     IST = timezone(timedelta(hours=5, minutes=30))
     current_time_str = datetime.datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S (%A) [IST]")
 
@@ -325,6 +325,7 @@ def chat():
         f"Current exact date and time: {current_time_str}. "
         "Your name is ADISE. You were created and developed by Anees Ahmed L, "
         "a Computer Science Engineering (CSE) student. "
+        "CRITICAL INSTRUCTION FOR REAL-TIME DATA: Always use your live search capabilities to fetch up-to-date facts, current office holders, events, and news relative to the year 2026. Do NOT rely purely on older static knowledge if events or leadership have changed. "
         "IMPORTANT: Do NOT volunteer who created you, your name, or your background in casual greetings "
         "like 'hi' or 'hello'. Respond naturally and concisely. Only mention that you were created by Anees Ahmed L "
         "if the user explicitly asks who made, created, or developed you. "
