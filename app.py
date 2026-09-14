@@ -33,6 +33,10 @@ MONGO_URI = os.getenv("MONGO_URI", "").strip()
 if MONGO_URI.startswith("MONGODB_URI="):
     MONGO_URI = MONGO_URI.replace("MONGODB_URI=", "")
 
+# --- Secure Admin Configuration ---
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "secure_admin_password_2026"  # Change this to your preferred admin password
+
 # --- Lazy MongoDB Connection ---
 mongo_client = None
 
@@ -54,12 +58,6 @@ def get_db():
 
 # --- Helper Function: Multi-Tier Failover with Google Search Grounding ---
 def generate_ai_response(user_input, system_instruction):
-    """
-    Tries Gemini Primary Key, then Secondary Key using gemini-3.6-flash (with Google Search Grounding enabled).
-    If both fail or are rate-limited, falls over to Hugging Face Llama 3.1 router.
-    """
-    
-    # 1. Try Gemini Keys First (With Google Search Grounding)
     gemini_keys = [
         ("Primary Gemini Key", GEMINI_API_KEY),
         ("Secondary Gemini Key", GEMINI_API_KEY_2)
@@ -77,7 +75,7 @@ def generate_ai_response(user_input, system_instruction):
                     contents=user_input,
                     config=types.GenerateContentConfig(
                         system_instruction=system_instruction,
-                        tools=[{"google_search": {}}], # Enables live Google Search Grounding via types config
+                        tools=[{"google_search": {}}],
                         temperature=0.3
                     )
                 )
@@ -88,7 +86,6 @@ def generate_ai_response(user_input, system_instruction):
         except Exception as client_err:
             print(f"[{key_name} Client Init Error]: {str(client_err)}")
 
-    # 2. Fallover to Hugging Face if Gemini fails or is exhausted
     if HUGGINGFACE_API_KEY:
         print("[FALLOVER] Switching to Hugging Face backup provider...")
         API_URL = "https://router.huggingface.co/v1/chat/completions"
@@ -141,6 +138,66 @@ def clear_session():
     session.clear()
     return redirect(url_for('home'))
 
+# --- Secure Admin Panel Routes ---
+
+@app.route('/adise_secure_admin_portal_99', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        if data.get('username') == ADMIN_USERNAME and data.get('password') == ADMIN_PASSWORD:
+            session['is_admin'] = True
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": "Invalid admin credentials"}), 401
+    
+    if session.get('is_admin'):
+        return redirect(url_for('admin_dashboard'))
+    return render_template('admin_login.html')
+
+@app.route('/adise_secure_admin_portal_99/dashboard')
+def admin_dashboard():
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    return render_template('admin_dashboard.html')
+
+@app.route('/adise_secure_admin_portal_99/api/data')
+def admin_api_data():
+    if not session.get('is_admin'):
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    db = get_db()
+    if db is None:
+        return jsonify({"error": "Database unreachable"}), 500
+
+    try:
+        users = list(db.users.find({}, {"password_hash": 0}))
+        for u in users:
+            u["_id"] = str(u["_id"])
+            if "created_at" in u and u["created_at"]:
+                u["created_at"] = u["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+        
+        threads = list(db.chat_threads.find({}))
+        for t in threads:
+            t["_id"] = str(t["_id"])
+
+        history = list(db.chat_history.find({}))
+        for h in history:
+            h["_id"] = str(h["_id"])
+            if "timestamp" in h and h["timestamp"]:
+                h["timestamp"] = h["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
+
+        return jsonify({
+            "users": users,
+            "threads": threads,
+            "history": history
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/adise_secure_admin_portal_99/logout', methods=['POST'])
+def admin_logout():
+    session.pop('is_admin', None)
+    return jsonify({"status": "success"})
+
 # --- Authentication Routes ---
 
 @app.route('/send_otp', methods=['POST'])
@@ -165,7 +222,6 @@ def send_otp():
         return jsonify({"status": "error", "message": "Username or Email already registered."}), 409
 
     otp = str(random.randint(100000, 999999))
-    print(f"[DEBUG] Generated OTP for {email}: {otp}")
     
     session['pending_user'] = {
         'username': username,
@@ -196,10 +252,8 @@ def send_otp():
         if response.status_code in [200, 201]:
             return jsonify({"status": "success", "message": f"OTP code dispatched to {email}"})
         else:
-            print(f"[BREVO API ERROR]: {response.status_code} - {response.text}")
             return jsonify({"status": "error", "message": f"Failed to deliver OTP via mail service: {response.text}"}), 500
     except Exception as e:
-        print(f"[MAIL REQUEST ERROR]: {str(e)}")
         return jsonify({"status": "error", "message": f"Failed to initiate OTP email: {str(e)}"}), 500
 
 @app.route('/verify_otp_and_register', methods=['POST'])
@@ -250,7 +304,6 @@ def login():
             "$or": [{"username_lower": login_identifier}, {"email": login_identifier}]
         })
     except Exception as e:
-        print(f"[LOGIN DB ERROR]: {str(e)}")
         return jsonify({"status": "error", "message": "Database connection error."}), 500
 
     if user and check_password_hash(user['password_hash'], password):
@@ -318,7 +371,6 @@ def chat():
             except Exception as db_err:
                 print(f"Error updating/inserting thread: {db_err}")
 
-    # --- Accurate IST Time & Strict Real-Time Instructions Fix ---
     IST = timezone(timedelta(hours=5, minutes=30))
     current_time_str = datetime.datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S (%A) [IST]")
 

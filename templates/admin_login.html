@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - Restricted</title>
+    <style>
+        body { background: #0b0b13; color: #fff; font-family: sans-serif; display: flex; height: 100vh; justify-content: center; align-items: center; margin: 0; }
+        .box { background: #161622; padding: 30px; border-radius: 12px; width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        input { width: 100%; padding: 10px; margin: 10px 0; background: #1e1e2f; border: 1px solid #333; color: #fff; border-radius: 6px; box-sizing: border-box; outline: none; }
+        input:focus { border-color: #818cf8; }
+        button { width: 100%; padding: 10px; background: #e11d48; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #be123c; }
+        .error { color: #f87171; font-size: 0.85rem; margin-top: 5px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h3 style="text-align: center; color: #818cf8; margin-bottom: 15px;">Admin Portal</h3>
+        <input type="text" id="adminUser" placeholder="Admin Username">
+        <input type="password" id="adminPass" placeholder="Admin Password">
+        <button onclick="loginAdmin()">Secure Login</button>
+        <div id="errorMsg" class="error"></div>
+    </div>
+    <script>
+        async function loginAdmin() {
+            const res = await fetch('/adise_secure_admin_portal_99', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    username: document.getElementById('adminUser').value,
+                    password: document.getElementById('adminPass').value
+                })
+            });
+            if(res.ok) {
+                window.location.href = '/adise_secure_admin_portal_99/dashboard';
+            } else {
+                document.getElementById('errorMsg আনন্দের').innerText = "Access Denied";
+                document.getElementById('errorMsg').innerText = "Invalid Admin Credentials";
+            }
+        }
+    </script>
+</body>
+</html>

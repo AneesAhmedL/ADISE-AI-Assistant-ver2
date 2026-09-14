@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ADISE - Authentication</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/ADISE2-Rlogo.png') }}">
-    <!-- Font Awesome for Eye Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -17,7 +16,6 @@
         .form-group input { width: 100%; padding: 0.8rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; outline: none; }
         .form-group input:focus { border-color: #38bdf8; }
         
-        /* Password Eye Icon Container Styling */
         .password-container { position: relative; display: flex; align-items: center; }
         .password-container input { padding-right: 40px; }
         .toggle-password { position: absolute; right: 15px; cursor: pointer; color: #94a3b8; font-size: 1rem; }
@@ -49,7 +47,6 @@
             <input type="text" id="loginId" placeholder="Enter username or email" required autocomplete="username">
         </div>
         
-        <!-- Password Field with Eye Toggle Integration -->
         <div class="form-group" id="passwordGroup">
             <label for="password">Password</label>
             <div class="password-container">
@@ -95,7 +92,6 @@
     const toggleBtn = document.getElementById("toggleBtn");
     const alertBox = document.getElementById("alertBox");
 
-    // Password Show/Hide Toggle Script
     const togglePasswordBtn = document.getElementById("togglePassword");
     const eyeIcon = document.getElementById("eyeIcon");
 
@@ -159,7 +155,6 @@
         e.preventDefault();
         alertBox.style.display = "none";
 
-        // Step 1: Login Execution
         if (!isRegistering) {
             try {
                 const res = await fetch("/login", {
@@ -184,7 +179,6 @@
             return;
         }
 
-        // Step 2: Request OTP
         if (isRegistering && !awaitingOTP) {
             try {
                 submitBtn.textContent = "Sending OTP...";
@@ -225,7 +219,6 @@
             return;
         }
 
-        // Step 3: Verify OTP & Register
         if (isRegistering && awaitingOTP) {
             try {
                 const res = await fetch("/verify_otp_and_register", {
@@ -248,6 +241,5 @@
         }
     });
 </script>
-
 </body>
 </html>
