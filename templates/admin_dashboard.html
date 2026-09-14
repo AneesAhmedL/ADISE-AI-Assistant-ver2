@@ -69,7 +69,7 @@
             globalData.users.forEach(user => {
                 const div = document.createElement('div');
                 div.className = "user-item";
-                div.innerHTML = `<strong style="color:#f8fafc; font-size:1rem;">${escapeHtml(user.username)}</strong><br><small style="color:#94a3b8;">${escapeHtml(user.email)}</small><br><small style="color:#64748b; font-size:0.75rem;">Joined: ${user.created_at || 'N/A'}</small>`;
+                div.innerHTML = `<strong style="color:#f8fafc; font-size:1rem;">${escapeHtml(user.username)}</strong><br><small style="color:#94a3b8;">${escapeHtml(user.email)}</small><br><small style="color:#64748b; font-size:0.75rem;">Joined: ${user.created_at || 'N/A'} IST</small>`;
                 div.onclick = () => {
                     document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
                     div.classList.add('active');
@@ -94,14 +94,16 @@
             userMessages.sort((a,b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
 
             userMessages.forEach(msg => {
+                const timestampStr = msg.timestamp ? `${msg.timestamp} IST` : '';
+
                 const uDiv = document.createElement('div');
                 uDiv.className = "chat-bubble u";
-                uDiv.innerHTML = `${escapeHtml(msg.user_message)}<span class="time">${msg.timestamp || ''}</span>`;
+                uDiv.innerHTML = `${escapeHtml(msg.user_message)}<span class="time">${timestampStr}</span>`;
                 box.appendChild(uDiv);
 
                 const bDiv = document.createElement('div');
                 bDiv.className = "chat-bubble b";
-                bDiv.innerHTML = `${escapeHtml(msg.bot_reply)}<span class="time">${msg.timestamp || ''}</span>`;
+                bDiv.innerHTML = `${escapeHtml(msg.bot_reply)}<span class="time">${timestampStr}</span>`;
                 box.appendChild(bDiv);
             });
             box.scrollTop = box.scrollHeight;

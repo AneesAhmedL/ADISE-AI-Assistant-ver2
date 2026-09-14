@@ -173,7 +173,10 @@ def admin_api_data():
         for u in users:
             u["_id"] = str(u["_id"])
             if "created_at" in u and u["created_at"]:
-                u["created_at"] = u["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                if isinstance(u["created_at"], datetime.datetime):
+                    u["created_at"] = u["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    u["created_at"] = str(u["created_at"])
         
         threads = list(db.chat_threads.find({}))
         for t in threads:
@@ -183,7 +186,10 @@ def admin_api_data():
         for h in history:
             h["_id"] = str(h["_id"])
             if "timestamp" in h and h["timestamp"]:
-                h["timestamp"] = h["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
+                if isinstance(h["timestamp"], datetime.datetime):
+                    h["timestamp"] = h["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    h["timestamp"] = str(h["timestamp"])
 
         return jsonify({
             "users": users,
@@ -273,12 +279,13 @@ def verify_otp_and_register():
         return jsonify({"status": "error", "message": "Invalid OTP code. Please try again."}), 400
 
     try:
+        IST = timezone(timedelta(hours=5, minutes=30))
         user_doc = {
             "username": pending['username'],
             "username_lower": pending['username'].lower(),
             "email": pending['email'],
             "password_hash": pending['password_hash'],
-            "created_at": datetime.datetime.now(datetime.timezone.utc)
+            "created_at": datetime.datetime.now(IST)
         }
         db.users.insert_one(user_doc)
         session.pop('pending_user', None)
@@ -338,6 +345,9 @@ def chat():
     if not user_input:
         return jsonify({"reply": "Please enter a message."})
 
+    IST = timezone(timedelta(hours=5, minutes=30))
+    current_ist_time = datetime.datetime.now(IST)
+
     if not session_id:
         session_id = str(uuid.uuid4())
         title = user_input[:25] + "..." if len(user_input) > 25 else user_input
@@ -346,7 +356,7 @@ def chat():
                 "session_id": session_id,
                 "user_id": user_id,
                 "title": title,
-                "created_at": datetime.datetime.now(datetime.timezone.utc)
+                "created_at": current_ist_time
             })
         except Exception as db_err:
             print(f"Error creating thread: {db_err}")
@@ -363,7 +373,7 @@ def chat():
                             "title": title
                         },
                         "$setOnInsert": {
-                            "created_at": datetime.datetime.now(datetime.timezone.utc)
+                            "created_at": current_ist_time
                         }
                     },
                     upsert=True
@@ -371,8 +381,7 @@ def chat():
             except Exception as db_err:
                 print(f"Error updating/inserting thread: {db_err}")
 
-    IST = timezone(timedelta(hours=5, minutes=30))
-    current_time_str = datetime.datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S (%A) [IST]")
+    current_time_str = current_ist_time.strftime("%Y-%m-%d %H:%M:%S (%A) [IST]")
 
     system_instruction = (
         f"Current exact date and time: {current_time_str}. "
@@ -396,7 +405,7 @@ def chat():
             "user_id": user_id,
             "user_message": user_input,
             "bot_reply": reply,
-            "timestamp": datetime.datetime.now(datetime.timezone.utc)
+            "timestamp": current_ist_time
         })
     except Exception as db_err:
         print(f"Database logging error: {db_err}")
