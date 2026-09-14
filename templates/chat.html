@@ -42,7 +42,7 @@
             z-index: 100;
         }
 
-        /* Mobile Collapsible Behaviour */
+        /* Mobile Collapsible Behaviour (Non-Desktop Mode) */
         @media (max-width: 768px) {
             .sidebar {
                 position: absolute;
@@ -179,7 +179,7 @@
 
         <!-- Main Chat Interface -->
         <main class="chat-main">
-            <!-- Mobile Toggle Header Bar -->
+            <!-- Mobile Toggle Header Bar (Shown in Non-Desktop Mode) -->
             <div class="mobile-header">
                 <button class="menu-toggle-btn" id="menuToggleBtn">☰</button>
                 <span style="font-weight: 600; margin-left: 10px; font-size: 1rem;">ADISE Workspace</span>
@@ -208,22 +208,29 @@
 
     <!-- Sidebar Toggle & History Management Script -->
     <script>
-        // Sidebar Touch-to-Toggle Logic
         const menuToggleBtn = document.getElementById("menuToggleBtn");
         const appContainer = document.getElementById("appContainer");
         const sidebar = document.getElementById("sidebar");
 
+        // Toggle mobile drawer sidebar on hamburger click
         menuToggleBtn?.addEventListener("click", (e) => {
             e.stopPropagation();
             appContainer.classList.toggle("sidebar-active");
         });
 
-        // Close sidebar when clicking outside on mobile view
+        // Close sidebar when clicking outside on non-desktop screens
         document.addEventListener("click", (e) => {
             if (window.innerWidth <= 768 && appContainer.classList.contains("sidebar-active")) {
                 if (!sidebar.contains(e.target) && e.target !== menuToggleBtn) {
                     appContainer.classList.remove("sidebar-active");
                 }
+            }
+        });
+
+        // Automatically clean up state if window resizes back up to desktop view
+        window.addEventListener("resize", () => {
+            if (window.innerWidth > 768) {
+                appContainer.classList.remove("sidebar-active");
             }
         });
 
