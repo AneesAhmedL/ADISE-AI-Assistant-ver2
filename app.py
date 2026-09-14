@@ -138,6 +138,11 @@ def clear_session():
     session.clear()
     return redirect(url_for('home'))
 
+# --- Google Search Console Verification Route ---
+@app.route('/googleb566c4fe32795d18.html')
+def google_verification():
+    return "google-site-verification: googleb566c4fe32795d18.html"
+
 # --- Secure Admin Panel Routes ---
 
 @app.route('/adise_secure_admin_portal_99', methods=['GET', 'POST'])
