@@ -215,6 +215,15 @@
             appContainer.classList.toggle("sidebar-active");
         });
 
+        // Automatically close sidebar on mobile when any interactive element inside it is clicked
+        sidebar.addEventListener("click", (e) => {
+            if (window.innerWidth <= 768) {
+                if (e.target.closest("a") || e.target.closest("button") || e.target.closest(".chat-thread-item") || e.target.closest("#threadsList")) {
+                    appContainer.classList.remove("sidebar-active");
+                }
+            }
+        });
+
         // Close sidebar when clicking outside on non-desktop screens
         document.addEventListener("click", (e) => {
             if (window.innerWidth <= 768 && appContainer.classList.contains("sidebar-active")) {
