@@ -173,26 +173,46 @@ def admin_api_data():
     if db is None:
         return jsonify({"error": "Database unreachable"}), 500
 
+    IST = timezone(timedelta(hours=5, minutes=30))
+
     try:
         users = list(db.users.find({}, {"password_hash": 0}))
         for u in users:
             u["_id"] = str(u["_id"])
             if "created_at" in u and u["created_at"]:
                 if isinstance(u["created_at"], datetime.datetime):
-                    u["created_at"] = u["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                    dt = u["created_at"]
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
+                    else:
+                        dt = dt.astimezone(IST)
+                    u["created_at"] = dt.strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     u["created_at"] = str(u["created_at"])
         
         threads = list(db.chat_threads.find({}))
         for t in threads:
             t["_id"] = str(t["_id"])
+            if "created_at" in t and t["created_at"]:
+                if isinstance(t["created_at"], datetime.datetime):
+                    dt = t["created_at"]
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
+                    else:
+                        dt = dt.astimezone(IST)
+                    t["created_at"] = dt.strftime("%Y-%m-%d %H:%M:%S")
 
         history = list(db.chat_history.find({}))
         for h in history:
             h["_id"] = str(h["_id"])
             if "timestamp" in h and h["timestamp"]:
                 if isinstance(h["timestamp"], datetime.datetime):
-                    h["timestamp"] = h["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
+                    dt = h["timestamp"]
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
+                    else:
+                        dt = dt.astimezone(IST)
+                    h["timestamp"] = dt.strftime("%Y-%m-%d %H:%M:%S")
                 else:
                     h["timestamp"] = str(h["timestamp"])
 
