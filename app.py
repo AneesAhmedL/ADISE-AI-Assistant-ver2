@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "adise_production_secure_secret_key_2026")
+app.secret_key = os.getenv("SECRET_KEY", "")
 
 app.config.update(
     SESSION_COOKIE_SECURE=True,
@@ -33,9 +33,9 @@ MONGO_URI = os.getenv("MONGO_URI", "").strip()
 if MONGO_URI.startswith("MONGODB_URI="):
     MONGO_URI = MONGO_URI.replace("MONGODB_URI=", "")
 
-# --- Secure Admin Configuration ---
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "secure_admin_password_2026"  # Change this to your preferred admin password
+# --- Secure Admin Configuration (Loaded safely from environment variables) ---
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 
 # --- Lazy MongoDB Connection ---
 mongo_client = None
