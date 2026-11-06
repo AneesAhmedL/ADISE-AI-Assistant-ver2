@@ -25,8 +25,8 @@ app.config.update(
 
 # --- Environment & API Configurations ---
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
-GEMINI_API_KEY_2 = os.getenv("GEMINI_API_KEY_2", "") or os.getenv("GOOGLE_API_KEY_2", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "I") or os.getenv("GOOGLE_API_KEY", "")
+GEMINI_API_KEY_2 = os.getenv("GEMINI_API_KEY_2", "I") or os.getenv("GOOGLE_API_KEY_2", "")
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
