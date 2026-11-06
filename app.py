@@ -62,7 +62,7 @@ def generate_ai_response(user_input, system_instruction):
         ("Primary Gemini Key", GEMINI_API_KEY),
         ("Secondary Gemini Key", GEMINI_API_KEY_2)
     ]
-    model = "gemini-3.6-flash"
+    model = "gemini-1.5-flash"
 
     for key_name, api_key in gemini_keys:
         if not api_key:
@@ -94,7 +94,7 @@ def generate_ai_response(user_input, system_instruction):
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "meta-llama/Llama-3.1-8B-Instruct",
+            "model": "Qwen/Qwen2.5-72B-Instruct",
             "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_input}
