@@ -62,7 +62,7 @@ def generate_ai_response(user_input, system_instruction):
         ("Primary Gemini Key", GEMINI_API_KEY),
         ("Secondary Gemini Key", GEMINI_API_KEY_2)
     ]
-    model = "gemini-2.5-flash"
+    model = "gemini-flash-latest"
 
     for key_name, api_key in gemini_keys:
         if not api_key:
