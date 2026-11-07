@@ -17,11 +17,7 @@ from pymongo.errors import DuplicateKeyError
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# ---------------------------------------------------------
 # FLASK CONFIGURATION
-# ---------------------------------------------------------
-
 app = Flask(__name__)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
@@ -39,9 +35,9 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(hours=12),
 )
 
-# ---------------------------------------------------------
+
 # ENVIRONMENT & API CONFIGURATION
-# ---------------------------------------------------------
+
 
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
 
@@ -72,9 +68,7 @@ GROQ_MODEL = os.getenv(
     "GROQ_MODEL", "openai/gpt-oss-120b"
 ).strip()
 
-# ---------------------------------------------------------
 # TIME HELPER
-# ---------------------------------------------------------
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -83,9 +77,8 @@ def now_ist():
     return datetime.datetime.now(IST)
 
 
-# ---------------------------------------------------------
+
 # MONGODB CONNECTION & INDEXES
-# ---------------------------------------------------------
 
 mongo_client = None
 _indexes_ready = False
@@ -220,10 +213,7 @@ def get_db():
         print(f"[MONGO CONNECTION ERROR]: {e}")
         return None
 
-
-# ---------------------------------------------------------
 # AI RESPONSE: GEMINI PRIMARY + GROQ BACKUP
-# ---------------------------------------------------------
 
 def generate_ai_response(user_input, system_instruction):
 
@@ -350,10 +340,7 @@ def generate_ai_response(user_input, system_instruction):
         "Please try again later."
     )
 
-
-# ---------------------------------------------------------
 # PAGE NAVIGATION
-# ---------------------------------------------------------
 
 @app.route("/")
 def home():
@@ -389,19 +376,14 @@ def clear_session():
     return redirect(url_for("home"))
 
 
-# ---------------------------------------------------------
 # GOOGLE SEARCH CONSOLE VERIFICATION
-# ---------------------------------------------------------
 
 @app.route("/googleb566c4fe32795d18.html")
 def google_verification():
 
     return "google-site-verification: googleb566c4fe32795d18.html"
 
-
-# ---------------------------------------------------------
 # ADMIN PANEL
-# ---------------------------------------------------------
 
 @app.route(
     "/adise_secure_admin_portal_99",
@@ -597,9 +579,7 @@ def admin_logout():
     return jsonify({"status": "success"})
 
 
-# ---------------------------------------------------------
 # REGISTRATION: SEND OTP
-# ---------------------------------------------------------
 
 @app.route("/send_otp", methods=["POST"])
 def send_otp():
@@ -803,10 +783,7 @@ def send_otp():
         }), 500
 
 
-# ---------------------------------------------------------
 # REGISTRATION: VERIFY OTP
-# ---------------------------------------------------------
-
 @app.route("/verify_otp_and_register", methods=["POST"])
 def verify_otp_and_register():
 
@@ -969,10 +946,8 @@ def verify_otp_and_register():
             "message": "Could not complete registration."
         }), 500
 
-
-# ---------------------------------------------------------
 # LOGIN
-# ---------------------------------------------------------
+
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -1041,10 +1016,7 @@ def login():
             "message": "Login could not be completed."
         }), 500
 
-
-# ---------------------------------------------------------
 # USER LOGOUT
-# ---------------------------------------------------------
 
 @app.route("/logout", methods=["POST"])
 def logout():
@@ -1056,10 +1028,7 @@ def logout():
         "message": "Logged out successfully."
     })
 
-
-# ---------------------------------------------------------
 # MAIN CHAT ROUTE
-# ---------------------------------------------------------
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -1194,10 +1163,7 @@ def chat():
         "session_id": session_id
     })
 
-
-# ---------------------------------------------------------
 # GET USER'S CHAT THREADS
-# ---------------------------------------------------------
 
 @app.route("/get_threads", methods=["GET"])
 def get_threads():
@@ -1245,9 +1211,7 @@ def get_threads():
         }), 500
 
 
-# ---------------------------------------------------------
 # GET MESSAGES FOR ONE USER-OWNED THREAD
-# ---------------------------------------------------------
 
 @app.route(
     "/get_thread_messages/<session_id>",
@@ -1311,10 +1275,7 @@ def get_thread_messages(session_id):
             "error": "Could not retrieve chat messages."
         }), 500
 
-
-# ---------------------------------------------------------
 # RUN APPLICATION
-# ---------------------------------------------------------
 
 if __name__ == "__main__":
 
