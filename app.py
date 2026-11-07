@@ -62,18 +62,14 @@ def generate_ai_response(user_input, system_instruction):
         ("Primary Gemini Key", GEMINI_API_KEY),
         ("Secondary Gemini Key", GEMINI_API_KEY_2)
     ]
-    model = "gemini-1.5-flash"
+    model = "gemini-2.5-flash"
 
     # 1. Try Gemini Keys First
     for key_name, api_key in gemini_keys:
         if not api_key:
             continue
         try:
-            # Explicitly force v1 API version to resolve 404 endpoint routing blocks
-            gemini_client = genai.Client(
-                api_key=api_key,
-                http_options=types.HttpOptions(api_version="v1")
-            )
+            gemini_client = genai.Client(api_key=api_key)
             try:
                 response = gemini_client.models.generate_content(
                     model=model,
@@ -91,7 +87,7 @@ def generate_ai_response(user_input, system_instruction):
         except Exception as client_err:
             print(f"[{key_name} Client Init Error]: {str(client_err)}")
 
-    # 2. Fallback to Groq API (Using stable universal llama3-8b-8192 model)
+    # 2. Fallback to Groq API (Using active llama-3.3-70b-versatile model)
     if GROQ_API_KEY:
         print("[FALLOVER] Switching to Groq backup provider...")
         API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -100,7 +96,7 @@ def generate_ai_response(user_input, system_instruction):
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama3-8b-8192",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_input}
