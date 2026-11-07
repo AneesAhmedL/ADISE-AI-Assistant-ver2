@@ -69,7 +69,11 @@ def generate_ai_response(user_input, system_instruction):
         if not api_key:
             continue
         try:
-            gemini_client = genai.Client(api_key=api_key)
+            # Explicitly force v1 API version to resolve 404 endpoint routing blocks
+            gemini_client = genai.Client(
+                api_key=api_key,
+                http_options=types.HttpOptions(api_version="v1")
+            )
             try:
                 response = gemini_client.models.generate_content(
                     model=model,
@@ -87,7 +91,7 @@ def generate_ai_response(user_input, system_instruction):
         except Exception as client_err:
             print(f"[{key_name} Client Init Error]: {str(client_err)}")
 
-    # 2. Fallback to Groq API (High performance free-tier backup)
+    # 2. Fallback to Groq API (Using stable universal llama3-8b-8192 model)
     if GROQ_API_KEY:
         print("[FALLOVER] Switching to Groq backup provider...")
         API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -96,7 +100,7 @@ def generate_ai_response(user_input, system_instruction):
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama-3.1-8b-instant",
+            "model": "llama3-8b-8192",
             "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_input}
