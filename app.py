@@ -62,6 +62,7 @@ def generate_ai_response(user_input, system_instruction):
         ("Primary Gemini Key", GEMINI_API_KEY),
         ("Secondary Gemini Key", GEMINI_API_KEY_2)
     ]
+    # Updated to active Google Gemini model
     model = "gemini-2.5-flash"
 
     # 1. Try Gemini Keys First
@@ -87,7 +88,7 @@ def generate_ai_response(user_input, system_instruction):
         except Exception as client_err:
             print(f"[{key_name} Client Init Error]: {str(client_err)}")
 
-    # 2. Fallback to Groq API (Using accessible free-tier model)
+    # 2. Fallback to Groq API (Using active model)
     if GROQ_API_KEY:
         print("[FALLOVER] Switching to Groq backup provider...")
         API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -96,7 +97,7 @@ def generate_ai_response(user_input, system_instruction):
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama-3.1-8b-instant",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_input}
