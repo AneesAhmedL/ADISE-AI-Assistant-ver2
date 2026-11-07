@@ -87,7 +87,7 @@ def generate_ai_response(user_input, system_instruction):
         except Exception as client_err:
             print(f"[{key_name} Client Init Error]: {str(client_err)}")
 
-    # 2. Fallback to Groq API (Using active llama-3.3-70b-versatile model)
+    # 2. Fallback to Groq API (Using accessible free-tier model)
     if GROQ_API_KEY:
         print("[FALLOVER] Switching to Groq backup provider...")
         API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -96,7 +96,7 @@ def generate_ai_response(user_input, system_instruction):
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama-3.3-70b-versatile",
+            "model": "llama-3.1-8b-instant",
             "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_input}
