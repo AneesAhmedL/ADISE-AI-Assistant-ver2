@@ -25,9 +25,9 @@ app.config.update(
 
 # --- Environment & API Configurations ---
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "I") or os.getenv("GOOGLE_API_KEY", "")
-GEMINI_API_KEY_2 = os.getenv("GEMINI_API_KEY_2", "I") or os.getenv("GOOGLE_API_KEY_2", "")
-HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
+GEMINI_API_KEY_2 = os.getenv("GEMINI_API_KEY_2", "") or os.getenv("GOOGLE_API_KEY_2", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 MONGO_URI = os.getenv("MONGO_URI", "").strip()
 
 if MONGO_URI.startswith("MONGODB_URI="):
@@ -56,7 +56,7 @@ def get_db():
             return None
     return mongo_client["adise_db"]
 
-# --- Helper Function: Multi-Tier Failover with Google Search Grounding ---
+# --- Helper Function: Multi-Tier Failover with Groq Backup & Google Search Grounding ---
 def generate_ai_response(user_input, system_instruction):
     gemini_keys = [
         ("Primary Gemini Key", GEMINI_API_KEY),
@@ -64,11 +64,15 @@ def generate_ai_response(user_input, system_instruction):
     ]
     model = "gemini-flash-latest"
 
+    # 1. Try Gemini Keys First
     for key_name, api_key in gemini_keys:
         if not api_key:
             continue
         try:
-            gemini_client = genai.Client(api_key=api_key)
+            gemini_client = genai.Client(
+                api_key=api_key,
+                http_options=types.HttpOptions(api_version="v1")
+            )
             try:
                 response = gemini_client.models.generate_content(
                     model=model,
@@ -86,15 +90,16 @@ def generate_ai_response(user_input, system_instruction):
         except Exception as client_err:
             print(f"[{key_name} Client Init Error]: {str(client_err)}")
 
-    if HUGGINGFACE_API_KEY:
-        print("[FALLOVER] Switching to Hugging Face backup provider...")
-        API_URL = "https://router.huggingface.co/v1/chat/completions"
+    # 2. Fallback to Groq API (High performance free-tier backup)
+    if GROQ_API_KEY:
+        print("[FALLOVER] Switching to Groq backup provider...")
+        API_URL = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
-            "Authorization": f"Bearer {HUGGINGFACE_API_KEY}",
+            "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "Qwen/Qwen2.5-72B-Instruct",
+            "model": "llama-3.3-70b-versatile",
             "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_input}
@@ -109,9 +114,9 @@ def generate_ai_response(user_input, system_instruction):
                 if "choices" in result and len(result["choices"]) > 0:
                     return result["choices"][0]["message"]["content"].strip()
             else:
-                print(f"[HUGGINGFACE API ERROR {response.status_code}]: {response.text}")
+                print(f"[GROQ API ERROR {response.status_code}]: {response.text}")
         except Exception as e:
-            print(f"[HUGGINGFACE EXCEPTION]: {str(e)}")
+            print(f"[GROQ EXCEPTION]: {str(e)}")
 
     return "All AI provider endpoints are currently experiencing heavy traffic or rate limits. Please try again later."
 
